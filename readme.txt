@@ -106,6 +106,8 @@ Attribution uses one first-party cookie called `flyaffiliate_ref`. It holds two 
 
 FlyAffiliate uses the [Appsero](https://appsero.com) SDK to collect usage data, **only once you allow it**. This helps us troubleshoot problems faster and improve the plugin.
 
+The SDK **sends nothing by default.** It starts only when an administrator turns on **Share Essentials** in the setup wizard or clicks **Allow** on its admin notice. From then on it sends, once a week, to Appsero (`api.appsero.com`): your site's name and URL, the first administrator's name and the site's admin email address, the server environment (PHP, MySQL, server and WordPress versions, memory limit, debug mode), the site language, the active theme, the number of users per role and of active and inactive plugins, how many affiliates and commissions you have, whether FlyAffiliate Pro is active, and the WooCommerce and FlyAffiliate versions. Nothing about your affiliates or your visitors is sent. To include the server's public IP address, the SDK first asks [icanhazip.com](https://icanhazip.com/), a service run by Cloudflare ([privacy policy](https://www.cloudflare.com/privacypolicy/)).
+
 Choosing **No thanks**, or leaving Share Essentials off, tells Appsero only that this site declined. When you deactivate the plugin, a form asks why. **Submit & Deactivate** sends your answer with the data above, and **Skip & Deactivate** sends nothing.
 
 Learn more about [how Appsero collects and uses this data](https://appsero.com/privacy-policy/).
