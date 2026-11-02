@@ -1,94 +1,22 @@
-# Changelog
+### v1.0.1 ( Nov 02, 2026 ) ###
 
-All notable changes to FlyAffiliate are recorded here. The user-facing copy of
-this list lives in `readme.txt` under `== Changelog ==`.
+- **update:** Rewrote the plugin page with a clearer description, the free and Pro feature lists, and new FAQ answers.
 
-The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
-the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+### v1.0.0 ( Oct 29, 2026 ) ###
 
-## [1.0.1] - 2026-11-02
-
-No code changes; the plugin runs as 1.0.0 did.
-
-### Changed
-
-- **Plugin page** — `readme.txt` gives the WordPress.org listing a new name,
-  "FlyAffiliate – Affiliate Marketing, Referral Program and Commission
-  Management for WooCommerce", a rewritten description with what the free
-  version and FlyAffiliate Pro include, a worked example of a Dokan vendor's
-  affiliate program, clearer installation steps and new FAQ answers on the
-  referral variable, Dokan and tiered commissions (#19). The Appsero
-  paragraph that names the data sent and where it goes, which the rewrite
-  dropped, is restored.
-- Repository tooling: `deploy.yml` publishes on every `v*` tag with no
-  repository-variable gate and attaches the deployed zip to a GitHub release
-  (#18); `npm run plugin-check` accepts `mismatched_plugin_name`, the
-  readme's long name against the header's "FlyAffiliate", as Dokan Lite
-  ships it (`docs/wporg-accepted-warnings.md`).
-
-## [1.0.0] - 2026-10-29
-
-The first release.
-
-### Added
-
-- **Affiliates** — email-only signup with a one-time activation link, an
-  Affiliate user role, pending/active/inactive/suspended statuses, and an admin
-  form with the payment email, website, promotion method and an optional
-  welcome email.
-- **Tracking** — a referral link per affiliate, a visit log with hashed visitor
-  data, and a signed first-party cookie for the attribution window.
-- **Referral links** — affiliates generate a link to any page of the site from
-  their dashboard and keep the ones they use, each with its visit count; the
-  admin sees them on the affiliate's page.
-- **Commissions** — one commission per order item at checkout (classic and
-  block), a product → default rate hierarchy clamped to a maximum, shipping
-  and tax excluded by choice, and self-referral blocked by default.
-- **Hold period** — every commission carries the date its hold ends, fixed
-  when it is created from the hold at that moment; a payout takes a
-  commission only once that date has passed.
-- **Order sync** — commissions follow the order: pending at checkout, unpaid
-  once the order is paid; failed, cancelled and (optionally) refunded orders
-  reject them, a recovered order restores them, a paid one is never reversed.
-- **Hand-entered commissions** — affiliate, amount, reference order (checked
-  against WooCommerce), reference amount, origin, date, type and status, on
-  their own page, with the same fields on edit.
-- **Payouts** — preview grouped by payout method, create one payment per
-  affiliate, mark paid or unpaid, take a commission out, delete an unpaid
-  payment, export CSV; each payment keeps the address it was sent to.
-- **Payout methods** — Manual, paid to the affiliate's payment email, and a
-  registry further methods plug into, with method logos, payment columns,
-  accounts connected elsewhere and a lock on payments in flight; affiliates
-  choose how they are paid in their dashboard.
-- **WooCommerce Analytics** — an Affiliate Commission box on Analytics →
-  Overview that counts the orders the report counts and opens the
-  Commissions screen.
-- **Admin** — a React admin on weDevs' plugin UI: dashboard with a chart,
-  affiliates, commissions, visits, payouts, settings and a setup wizard that
-  opens on a first install only; a header bar with Get Support and a help
-  menu, and other plugins' notices kept off its screens.
-- **Extensions** — a page that previews FlyAffiliate Pro's extensions while
-  Pro is not active.
-- **Affiliate dashboard** — `[flyaffiliate_dashboard]` with the referral link
-  and a link generator, balance, commissions, visits, payouts and settings;
-  `[flyaffiliate_register]` for signup.
-- **Usage data** — opt-in Appsero Insights: nothing is sent until an
-  administrator turns on Share Essentials in the setup wizard or allows it on
-  the SDK's notice (ADR-0018).
-- **REST API** under `flyaffiliate/v1` for affiliates, commissions, visits,
-  referral links, payouts, payout methods, settings and the affiliate's own
-  data.
-- **WP-CLI** `wp flyaffiliate seed` for demo data.
-- **Extension points** for a marketplace integration: `vendor_id` on
-  commissions, a note on each commission, the `flyaffiliate_vendor_rate`,
-  `flyaffiliate_order_item_vendor_id`, `flyaffiliate_max_rate`,
-  `flyaffiliate_commission_note`, `flyaffiliate_analytics_vendor_id` and
-  `flyaffiliate_commission_hold_days` filters, and the
-  `flyaffiliate_commission_deleted` action.
-- Repository tooling: Composer and npm dependency sets, PHPCS ruleset, PHPUnit
-  configuration, wp-env environments, webpack build, release archiver, Plugin
-  Check runner, Playwright end-to-end tests, and CI for PHPCS, PHPUnit
-  (PHP 8.1/8.3) and Plugin Check.
-
-[1.0.1]: https://github.com/weDevsOfficial/flyaffiliate/compare/v1.0.0...v1.0.1
-[1.0.0]: https://github.com/weDevsOfficial/flyaffiliate/releases/tag/v1.0.0
+- **new:** Affiliates, with email-only signup and a one-time activation link, an Affiliate user role, pending, active, inactive and suspended statuses, and an admin form with payment email, website, promotion method and an optional welcome email.
+- **new:** Tracking, with a referral link per affiliate, a visit log with hashed visitor data, and a signed first-party cookie for the attribution window.
+- **new:** Referral links, where affiliates generate a link to any page of your site from their dashboard and keep the ones they use, each with its visit count, which you also see on the affiliate's page.
+- **new:** Commissions, with one commission per order item at checkout (classic and block), a product meta then default rate order capped at a maximum, optional shipping and tax exclusion, and self-referral blocked by default.
+- **new:** Hold period, where every commission carries the date its hold ends, fixed when it is created, and a payout takes a commission only once that date has passed.
+- **new:** Order sync, where commissions are pending at checkout and unpaid once the order is paid, failed, cancelled and (optionally) refunded orders reject them, a recovered order restores them, and a paid commission is never reversed.
+- **new:** Hand-entered commissions with affiliate, amount, reference order (checked against WooCommerce), reference amount, origin, date, type and status.
+- **new:** Payouts, with a preview grouped by payout method, one payment per affiliate, mark paid or unpaid, remove a commission, delete an unpaid payment and CSV export, and each payment keeps the address it was sent to.
+- **new:** Payout methods, with Manual payouts to the affiliate's payment email and room for more methods, and affiliates choose how they are paid in their dashboard.
+- **new:** WooCommerce Analytics, with an Affiliate Commission box on Analytics > Overview that counts the orders the report counts.
+- **new:** A React admin with a dashboard and chart, affiliates, commissions, visits, payouts, settings and a setup wizard that opens on a first install only, with other plugins' notices kept off its screens.
+- **new:** Extensions, a page that previews FlyAffiliate Pro's extensions while Pro is not active.
+- **new:** Affiliate dashboard shortcode `[flyaffiliate_dashboard]` with the referral link and link generator, balance, commissions, visits, payouts and settings, and registration shortcode `[flyaffiliate_register]`.
+- **new:** Usage data, with opt-in Appsero Insights that sends nothing until an administrator allows it (see Usage Data).
+- **new:** REST API under `flyaffiliate/v1` for affiliates, commissions, visits, referral links, payouts, payout methods, settings and the affiliate's own data.
+- **new:** WP-CLI command `wp flyaffiliate seed` for demo data.
