@@ -43,7 +43,7 @@ final class FlyAffiliate_Plugin {
 	 *
 	 * @var string
 	 */
-	public string $version = '1.0.0';
+	public string $version = '1.0.1';
 
 	/**
 	 * The lowest PHP version this plugin runs on.
