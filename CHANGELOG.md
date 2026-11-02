@@ -6,6 +6,26 @@ this list lives in `readme.txt` under `== Changelog ==`.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-11-02
+
+No code changes; the plugin runs as 1.0.0 did.
+
+### Changed
+
+- **Plugin page** — `readme.txt` gives the WordPress.org listing a new name,
+  "FlyAffiliate – Affiliate Marketing, Referral Program and Commission
+  Management for WooCommerce", a rewritten description with what the free
+  version and FlyAffiliate Pro include, a worked example of a Dokan vendor's
+  affiliate program, clearer installation steps and new FAQ answers on the
+  referral variable, Dokan and tiered commissions (#19). The Appsero
+  paragraph that names the data sent and where it goes, which the rewrite
+  dropped, is restored.
+- Repository tooling: `deploy.yml` publishes on every `v*` tag with no
+  repository-variable gate and attaches the deployed zip to a GitHub release
+  (#18); `npm run plugin-check` accepts `mismatched_plugin_name`, the
+  readme's long name against the header's "FlyAffiliate", as Dokan Lite
+  ships it (`docs/wporg-accepted-warnings.md`).
+
 ## [1.0.0] - 2026-10-29
 
 The first release.
@@ -70,4 +90,5 @@ The first release.
   Check runner, Playwright end-to-end tests, and CI for PHPCS, PHPUnit
   (PHP 8.1/8.3) and Plugin Check.
 
+[1.0.1]: https://github.com/weDevsOfficial/flyaffiliate/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/weDevsOfficial/flyaffiliate/releases/tag/v1.0.0

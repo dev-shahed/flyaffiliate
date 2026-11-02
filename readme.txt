@@ -196,6 +196,11 @@ No. FlyAffiliate focuses on single-tier affiliate programs.
 
 == Changelog ==
 
+= v1.0.1 ( Nov 2, 2026 ) =
+
+* **update:** A clearer plugin page, with a new name, a rewritten description of what the free version and FlyAffiliate Pro include, a worked example of a Dokan vendor's affiliate program, and new answers on the referral variable, Dokan and tiered commissions
+* **update:** The installation steps say when the setup wizard opens and how to approve each affiliate yourself
+
 = v1.0.0 ( Oct 29, 2026 ) =
 
 * **new:** Affiliates, with email-only signup and a one-time activation link, an Affiliate user role, pending, active, inactive and suspended statuses, and an admin form with payment email, website, promotion method and an optional welcome email
@@ -216,6 +221,9 @@ No. FlyAffiliate focuses on single-tier affiliate programs.
 * **new:** WP-CLI command `wp flyaffiliate seed` for demo data
 
 == Upgrade Notice ==
+
+= 1.0.1 =
+Plugin page updates only; nothing in the plugin changes.
 
 = 1.0.0 =
 First release of FlyAffiliate.
