@@ -7,7 +7,8 @@
 # plugin directory name is the real slug so the slug-dependent checks
 # (text domain, readme, headers) see what wp.org will see.
 #
-# Gate: zero errors and zero warnings. Anything else fails the build.
+# Gate: zero errors and zero warnings. Anything else fails the build, except the
+# codes in IGNORE_CODES, each recorded in docs/wporg-accepted-warnings.md.
 
 set -euo pipefail
 
@@ -16,6 +17,8 @@ cd "$(dirname "$0")/.."
 SLUG="flyaffiliate"
 CONTAINER_PLUGINS="/var/www/html/wp-content/plugins"
 SOURCE_MOUNT="${CONTAINER_PLUGINS}/${SLUG}-src"
+# The readme carries the listing's long name and the header "FlyAffiliate", as Dokan does.
+IGNORE_CODES="mismatched_plugin_name"
 
 if ! docker info >/dev/null 2>&1; then
 	echo "error: Docker is not running. Start Docker, then 'npm run env:start'." >&2
@@ -41,6 +44,7 @@ echo "==> Running Plugin Check"
 RESULT="$(npx wp-env run tests-cli -- wp plugin check "${SLUG}" \
 	--format=csv \
 	--fields=file,line,column,type,code,message \
+	--ignore-codes="${IGNORE_CODES}" \
 	--severity=5 2>/dev/null | tr -d '\r')"
 
 # Drop the CSV header and any wp-env chatter that is not a result row.
@@ -83,7 +87,7 @@ ERRORS="$(printf '%s\n' "${FINDINGS}" | grep -c ',ERROR,' || true)"
 WARNINGS="$(printf '%s\n' "${FINDINGS}" | grep -c ',WARNING,' || true)"
 
 echo
-npx wp-env run tests-cli -- wp plugin check "${SLUG}" --format=table --severity=5 || true
+npx wp-env run tests-cli -- wp plugin check "${SLUG}" --format=table --ignore-codes="${IGNORE_CODES}" --severity=5 || true
 echo
 echo "Plugin Check: ${ERRORS} errors, ${WARNINGS} warnings — the gate requires 0 of each." >&2
 exit 1

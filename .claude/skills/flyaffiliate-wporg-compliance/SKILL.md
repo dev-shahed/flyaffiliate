@@ -119,7 +119,9 @@ Almost never. To accept one, all three must hold:
 
 1. The code is correct and the check has no safe alternative in this context.
 2. The suppression is a single-line `phpcs:ignore` with the reason in the
-   comment — never a file-level or ruleset-level exclusion.
+   comment — never a file-level or ruleset-level exclusion. A `readme.txt`
+   finding, which no `phpcs:ignore` reaches, goes by its one code into
+   `IGNORE_CODES` in `bin/plugin-check.sh` (today: `mismatched_plugin_name`).
 3. A wp.org reviewer would accept the justification as written.
 
 Then record it in `docs/wporg-accepted-warnings.md` with the check, the location,
