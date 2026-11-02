@@ -9,7 +9,7 @@ description: Branching, commit format, pull requests, and CI expectations for th
 
 Mirrors Dokan:
 
-- **`main`** — released code. Tagged `v1.0.0`, `v1.0.1`, … Never committed to
+- **`master`** — released code. Tagged `v1.0.0`, `v1.0.1`, … Never committed to
   directly.
 - **`develop`** — the integration branch. Everything merges here first.
 - **Working branches** — cut from `develop`, merged back into `develop`:
