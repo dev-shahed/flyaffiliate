@@ -21,7 +21,7 @@ the built zip (`flyaffiliate-wporg-compliance`).
    the built bundles for the template, so the script runs it through PHP
    with a 1G memory limit.
 5. `npm run plugin-check`, `composer phpcs`, `npm run phpunit` — all green.
-6. Merge into `develop`, then `develop` into `master`, and tag `v<version>`.
+6. Merge into `develop`, then `develop` into `main`, and tag `v<version>`.
 
 ## Publish
 
