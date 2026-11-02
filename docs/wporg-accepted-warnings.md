@@ -9,7 +9,9 @@ A finding may only be added here when all three are true:
 1. The code is correct and the check is reporting a pattern that has no safe
    alternative in this context.
 2. The suppression is narrow — a `phpcs:ignore` on the single line, never a
-   file-level or ruleset-level exclusion.
+   file-level or ruleset-level exclusion. A finding on `readme.txt`, where no
+   `phpcs:ignore` reaches, is ignored by its one code in `bin/plugin-check.sh`
+   (`IGNORE_CODES`).
 3. A reviewer at WordPress.org would accept the justification as written.
 
 Anything else is a bug to fix, not a warning to accept.
@@ -25,6 +27,12 @@ inline the same way. `phpcs.xml.dist` turns `DirectQuery` and `NoCaching` off
 for the repository's own PHPCS run, because every direct query here is on the
 plugin's own tables; Plugin Check runs them regardless, which is what the
 inline suppressions are for.
+
+### Plugin name — `readme.txt`
+
+| Lines | Checks | Why it stands |
+|---|---|---|
+| `=== FlyAffiliate – Affiliate Marketing, Referral Program and Commission Management for WooCommerce ===` | `mismatched_plugin_name` (ignored in `bin/plugin-check.sh`) | The readme's name is the one the WordPress.org listing shows; the header's `Plugin Name: FlyAffiliate` is the one the Plugins screen shows. Dokan Lite pairs the same way (header "Dokan", a long readme name). "for WooCommerce" is a suffix, which the trademark rule allows. |
 
 ### Custom-table queries — `includes/Models/BaseModel.php`
 
