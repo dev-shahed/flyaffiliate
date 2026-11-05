@@ -327,6 +327,79 @@ $65, affiliate $15, marketplace keeps $20.
 | DOK-STORE-01 | Store page notice and shop-loop rate line | Affiliate only; hold shown when it differs | |
 | DOK-VSET-01 | Vendor Store Settings opt-in / own rate / own hold form | Validates rate ≤ max; saved to `_flyaffiliate_pro_dokan_*` | |
 
+## 16. FlyAffiliate Pro core — Pro ADR-0001 to ADR-0005
+
+**Scope.** How Pro boots on FlyAffiliate, the Extensions registry and its
+switch, the license as the one gate, Pro's routes' permissions, and the
+Extensions and License screens. **Approach.** Real Pro code in Pro's paired
+env; the license is a local test license (`preparePro()`, allowed on a local
+site by Pro's QA skill); no Appsero call is made. **Out of scope here:**
+activating a real key against Appsero, updates.
+
+| ID | Scenario | Expected |
+|---|---|---|
+| PRO-BOOT-01 | Pro active on FlyAffiliate | `flyaffiliate_is_pro_active()` true, `flyaffiliate_pro_loaded` fired, `window.flyaffiliate.pro` carries version and license state ✓ pro-core |
+| PRO-BOOT-02 | FlyAffiliate deactivated | One notice ("FlyAffiliate Pro needs the FlyAffiliate plugin…"), no fatal, Pro's REST namespace absent ✓ pro-core |
+| PRO-BOOT-03 | FlyAffiliate older than `$min_flyaffiliate` | Version notice, nothing else | |
+| PRO-EXT-01 | Registry | Dokan (`integration`) and PayPal (`payout_method`) listed with requirements, available, active, running ✓ pro-core |
+| PRO-EXT-02 | Switch on / off | Loads at once (its routes answer); off removes its routes; option `flyaffiliate_pro_active_extensions` follows ✓ pro-core |
+| PRO-EXT-03 | Unknown extension id | Refused, nothing stored ✓ pro-core |
+| PRO-EXT-04 | Platform missing (Dokan deactivated) | Unavailable with a requirement message; cannot switch on ✓ pro-core |
+| PRO-EXT-05 | Switch-on hook | `flyaffiliate_pro_extension_activated` runs once (Dokan's refund rule) ✓ dokan (DOK-EXT-01) |
+| PRO-EXT-06 | Persistent provider | Runs while off / unlicensed (Dokan deduction keeps applying) ✓ dokan (DOK-OFF-01) |
+| PRO-LIC-01 | No valid license | Nothing switches on (`flyaffiliate_pro_license_required`); a switched-on extension stops running, its routes vanish ✓ pro-core |
+| PRO-LIC-02 | License status | Key masked after 18 characters; activate needs a key (400); deactivate needs a stored key (400) ✓ pro-core |
+| PRO-LIC-03 | Real key activation / refresh against Appsero | Valid key activates; refresh updates expiry | |
+| PRO-SEC-01 | `/extensions`, `/license`, `PUT /extensions/{id}` | Guest 401; affiliate and shop manager 403 ✓ pro-core |
+| PRO-UI-01 | Extensions page | Pro's cards; a card's switch saves at once (apiFetch sends PUT as POST + method override) ✓ pro-core |
+| PRO-UI-02 | Extensions page, unlicensed | Upgrade shown; a switch opens the license dialog and switches nothing ✓ pro-core |
+| PRO-UI-03 | License page | Active badge; masked key in a read-only field ✓ pro-core |
+| PRO-UI-04 | Extension page off-state (`get_page_data()`) | Renders greyed with the reason it cannot run | |
+| PRO-FEAT-01 | Features (editable emails, fixed-rate commissions; ADR-0002) | Not built yet — add when they land | |
+
+## 17. PayPal Payouts — FlyAffiliate ADR-0012 / ADR-0016, Pro ADR-0004 / ADR-0009
+
+**Scope.** The PayPal payout method end to end: connecting the site's own
+app, sending a payout, what a payment in flight refuses, settling, failing,
+retrying, re-sending after a timeout, webhooks, switching off, the affiliate's
+side and vendor recipients. **Approach.** Pro's real code, with PayPal played
+by `tests/pw/fixtures/paypal-mock.php` (an mu-plugin answering
+`api-m.sandbox.paypal.com` through `pre_http_request`, logging every request);
+`utils/pro.ts` installs it and switches what it answers. Assertions on what was
+sent are scoped to the payment under test (`sentFor()`), because Pro also
+re-sends other unanswered transfers on the same account. **Out of scope here:**
+a live PayPal sandbox; Live mode; HTTPS webhook registration.
+
+| ID | Scenario | Expected |
+|---|---|---|
+| PP-CONN-01 | Keys PayPal refuses | Not connected ✓ pro-paypal |
+| PP-CONN-02 | Connect own app (sandbox) | Connected; account email and payer id read; Payouts check passes; webhook not registered over HTTP; secret never returned, client id masked ✓ pro-paypal |
+| PP-CONN-03 | Disconnect with payments in flight | Refused; still connected ✓ pro-paypal |
+| PP-CONN-04 | Connection moved to another site / app (`get_mismatch()`) | Stops counting as connected; Reconnect offered; nothing sent | |
+| PP-CONN-05 | Sandbox → Live switch | Method pauses until the live account is connected; queued transfers never cross modes | |
+| PP-PAY-01 | Preview | Grouped by method; PayPal rows automatic with the recipient email ✓ pro-paypal |
+| PP-PAY-02 | Create | One batch: exact amount ("12.34" USD), receiver, `PayPal-Request-Id` = sender batch id; payment locked, transfer processing, stamped `source=own`, `environment=sandbox`; commission still unpaid ✓ pro-paypal |
+| PP-PAY-03 | Payment in flight | Mark paid, delete, remove commission, edit commission, delete batch: all refused ✓ pro-paypal |
+| PP-PAY-04 | PayPal SUCCESS | Payment paid by the method, commissions paid, payout `paid`; checking again changes and sends nothing ✓ pro-paypal |
+| PP-PAY-05 | PayPal FAILED, then retry | Payment freed (`needs_attention`, retryable); retry sends attempt 2; a retry while it is in flight refused; then settles paid ✓ pro-paypal |
+| PP-PAY-05b | FAILED attempt later reported SUCCESS | Flagged "Needs attention", retry refused (`flyaffiliate_pro_transfer_not_failed`), never paid twice ✓ pro-paypal |
+| PP-PAY-06 | Failed, admin pays by hand | Paid, recorded as Manual ✓ pro-paypal |
+| PP-PAY-07 | PayPal rejects the batch (insufficient funds) | Transfer failed with PayPal's reason; payment not locked ✓ pro-paypal |
+| PP-PAY-08 | PayPal unreachable at send | Not failed; payment stays locked; after the 2-minute grace Pro re-sends under the same ids and request id; paid once ✓ pro-paypal |
+| PP-PAY-09 | "Switch to Manual" on the preview | Manual payment, no transfer ✓ pro-paypal |
+| PP-PAY-10 | PayPal switched off with a payment in flight | Locked, payout `needs_attention`; settles once back on ✓ pro-paypal |
+| PP-PAY-11 | UNCLAIMED / returned after 30 days | Stays pending, then fails as returned | |
+| PP-PAY-12 | Unconfirmed after 25 days | Marked unconfirmed for a person | |
+| PP-HOOK-01 | Notification missing headers / bad signature | Refused, settles nothing ✓ pro-paypal |
+| PP-HOOK-02 | Signed item notification | Settles the payment without the scheduled check ✓ pro-paypal |
+| PP-HOOK-03 | Batch notifications (DENIED / SUCCESS), borrowed source `?source=` | Settle only that account's transfers | |
+| PP-AFF-01 | Affiliate picks PayPal + email | Saved through `PUT /me`; dashboard shows the method picker ✓ pro-paypal |
+| PP-AFF-02 | Affiliate's payouts | State shown, PayPal's failure message never ✓ pro-paypal |
+| PP-VEN-01 | Vendor who is an affiliate | Paid to the store's PayPal withdraw email while vendors may use it; the typed email otherwise ✓ pro-paypal |
+| PP-VEN-02 | Vendor onboarded through Dokan Pro PayPal Marketplace, borrowed source sending | Paid by PayPal account id | |
+| PP-SRC-01 | Borrow Dokan Pro's PayPal Marketplace account (one-click Connect) | Connected without keys in Pro; own app never replaced behind the admin's back | |
+| PP-LOG-01 | Secrets | The client secret appears in no request Pro sent ✓ pro-paypal |
+
 ## End-to-end money journey (the one test that must never break) @money @smoke — ✓ money-journey
 
 1. Admin: `hold_days = 0`, default rate 10%, COD enabled; product $100 with

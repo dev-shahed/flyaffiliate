@@ -41,7 +41,8 @@ Spec map: `attribution` (WC-*), `order-sync` (SYN-*), `payout-rules`
 `affiliate-dashboard` (DSH-*, SEC-04/05), `security` (SEC-*), `standalone`
 (STD-*, WooCommerce deactivated for the file), `admin-shell` (SHL-05/07,
 SEC-03, SET-*), `admin-records` (AFF-*, COM-*), `money-journey` (the whole
-loop through a real block checkout), `dokan` (DOK-*, Pro + Dokan env only);
+loop through a real block checkout), `dokan` (DOK-*), `pro-core` (PRO-*) and
+`pro-paypal` (PP-*) (Pro paired env only);
 plus the screen specs `affiliates`,
 `commissions`, `dashboard`, `navigation`, `payouts`, `settings`, `setup`,
 `visits`.
@@ -204,6 +205,38 @@ FLYAFFILIATE_WP_ENV_DIR=$D/flyaffiliate-pro BASE_URL=http://localhost:8900 FLYAF
   sit on the **parent**; vendor money is read from `dokan_orders` (`dokanOrderRow()`).
 - Pro has no Playwright suite of its own; these specs live here because the
   harness does. Moving them into Pro is a reasonable follow-up.
+
+## Pro (FlyAffiliate Pro core and PayPal Payouts)
+
+`specs/pro-core.spec.ts` (PRO-*) and `specs/pro-paypal.spec.ts` (PP-*) run in
+the same paired env as the Dokan specs and skip themselves elsewhere. The paired
+env may mount the **main checkouts** instead of worktrees: in the Pro worktree's
+`.wp-env.override.json` set the plugin entries to the absolute paths of
+`plugins/flyaffiliate` and `plugins/flyaffiliate-pro`, then `npx wp-env start --update`.
+
+- `utils/pro.ts`: `preparePro()` / `restorePro()` (local test license, snapshot
+  of Pro's options, pretty permalinks and their `.htaccess`), `dropLicense()` /
+  `setLicense()`, `switchExtension()`, and the PayPal stand-in:
+  `installPayPalMock()`, `setPayPalMode( { token, send, item_status, verify } )`,
+  `payPalLog()`, `payoutRequests()`, `connectPayPal()`, `payAffiliateByPayPal()`,
+  `transfersOf()`.
+- **PayPal is never called.** `tests/pw/fixtures/paypal-mock.php` is written into
+  `mu-plugins` by the spec and removed after it; it answers Pro's sandbox
+  requests through `pre_http_request` and logs them. Assert on what Pro sent
+  with `sentFor( paymentId )` — Pro re-sends every unanswered transfer on the
+  account during a check, so global request counts are not stable.
+- Pro re-sends an unanswered batch only after `RESEND_GRACE` (120 s); simulate it
+  by moving the transfer's `sent_at` back (as `matures_at` is moved for holds).
+- Over HTTP Pro registers no webhook (PayPal needs HTTPS); a webhook test gives
+  the own source a `webhook_id` first (`save_state`).
+- Pro's admin saves through `apiFetch`, which sends PUT/DELETE as POST with
+  `X-HTTP-Method-Override`: wait for a non-GET response, not for `PUT`.
+- `wp-env start --update` drops `.htaccess`: `/wp-json/` then 404s while
+  `?rest_route=` still works, so a screen breaks before the REST tests notice.
+  `preparePro()` flushes rewrite rules for this reason.
+- A transfer PayPal reports paid after it failed is **flagged for a person**,
+  not paid and not re-sent (PP-PAY-05b) — by design; do not "fix" a test into
+  expecting it to settle.
 
 ## Workflow for a new or changed feature
 
