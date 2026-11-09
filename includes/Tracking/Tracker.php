@@ -71,9 +71,8 @@ class Tracker implements Hookable {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- a referral link is a public GET; there is no form to protect.
 		$value = isset( $_GET[ $variable ] ) ? sanitize_text_field( wp_unslash( $_GET[ $variable ] ) ) : '';
 
-		// Only a plain id counts. Read through absint(), an array
-		// (`?affiliate[]=…`) credited affiliate #1 and `-5` or `5abc` affiliate #5.
-		$affiliate_id = 1 === preg_match( '/^\d+$/', $value ) ? (int) $value : 0;
+		// Only a plain id counts: an array, a sign or trailing text credits nobody.
+		$affiliate_id = ctype_digit( $value ) ? (int) $value : 0;
 
 		if ( 0 === $affiliate_id ) {
 			return;
