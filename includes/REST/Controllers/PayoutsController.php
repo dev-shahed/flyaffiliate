@@ -14,6 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 use FlyAffiliate\Models\Affiliate;
 use FlyAffiliate\Models\Payout;
 use FlyAffiliate\REST\AdminBaseController;
+use DateTimeImmutable;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -286,13 +287,11 @@ class PayoutsController extends AdminBaseController {
 			'period_start'   => [
 				'description'       => __( 'Only commissions created on or after this date (Y-m-d).', 'flyaffiliate' ),
 				'type'              => 'string',
-				'pattern'           => '^\d{4}-\d{2}-\d{2}$',
 				'validate_callback' => [ $this, 'validate_date' ],
 			],
 			'period_end'     => [
 				'description'       => __( 'Only commissions created on or before this date (Y-m-d).', 'flyaffiliate' ),
 				'type'              => 'string',
-				'pattern'           => '^\d{4}-\d{2}-\d{2}$',
 				'validate_callback' => [ $this, 'validate_date' ],
 			],
 			'note'           => [
@@ -321,8 +320,8 @@ class PayoutsController extends AdminBaseController {
 	/**
 	 * A period bound: a calendar date written Y-m-d.
 	 *
-	 * The callback replaces core's checks for the argument, so it covers the
-	 * type and the pattern too; `2025-13-45` matches the pattern and is no date.
+	 * The value must parse as a date and print back unchanged, which refuses
+	 * `2025-13-45` (no such day) and `2025-1-5` (not the Y-m-d form) alike.
 	 *
 	 * @since FLYAFFILIATE_SINCE
 	 *
@@ -333,7 +332,9 @@ class PayoutsController extends AdminBaseController {
 	 * @return true|WP_Error True when valid, WP_Error otherwise.
 	 */
 	public function validate_date( $value, $request, $param ) {
-		if ( is_string( $value ) && 1 === preg_match( '/^(\d{4})-(\d{2})-(\d{2})$/', $value, $parts ) && wp_checkdate( (int) $parts[2], (int) $parts[3], (int) $parts[1], $value ) ) {
+		$date = is_string( $value ) ? DateTimeImmutable::createFromFormat( 'Y-m-d', $value ) : false;
+
+		if ( $date && $date->format( 'Y-m-d' ) === $value ) {
 			return true;
 		}
 
