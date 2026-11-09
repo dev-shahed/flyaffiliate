@@ -15,6 +15,32 @@ use FlyAffiliate\Test\FlyAffiliateTestCase;
 class SettingsValidationTest extends FlyAffiliateTestCase {
 
 	/**
+	 * A switch takes on or off; anything else is refused rather than read as off.
+	 *
+	 * @return void
+	 */
+	public function test_a_switch_takes_only_on_or_off(): void {
+		$this->assertSame( 'on', flyaffiliate_get_option( 'block_self_referral' ) );
+
+		$result = flyaffiliate()->settings->save( [ 'block_self_referral' => 'maybe' ], 'rules' );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 400, $result->get_error_data()['status'] );
+		$this->assertArrayHasKey( 'block_self_referral', $result->get_error_data()['errors'] );
+		$this->assertSame( 'on', flyaffiliate_get_option( 'block_self_referral' ), 'nothing stored' );
+
+		$this->acting_as( $this->admin_id );
+
+		$response = $this->put_request( '/settings/rules', [ 'values' => [ 'block_self_referral' => 'maybe' ] ] );
+
+		$this->assertSame( 400, $response->get_status() );
+		$this->assertSame( 'on', flyaffiliate_get_option( 'block_self_referral' ) );
+
+		$this->assertNotWPError( flyaffiliate()->settings->save( [ 'block_self_referral' => 'off' ], 'rules' ) );
+		$this->assertSame( 'off', flyaffiliate_get_option( 'block_self_referral' ) );
+	}
+
+	/**
 	 * A WordPress query variable cannot become the referral variable: with `p`,
 	 * every plain post link would credit the affiliate whose id matches the post.
 	 *
