@@ -63,6 +63,8 @@ class MeController extends AffiliateBaseController {
 					'args'                => [
 						'payment_email' => [
 							'type'              => 'string',
+							'format'            => 'email',
+							'validate_callback' => [ $this, 'validate_payment_email' ],
 							'sanitize_callback' => 'sanitize_email',
 						],
 						'promo_method'  => [
@@ -324,6 +326,28 @@ class MeController extends AffiliateBaseController {
 		}
 
 		return $this->get_item( $request );
+	}
+
+	/**
+	 * The payment email may be empty (payouts go to the account email) or must be an address.
+	 *
+	 * A typo used to pass through `sanitize_email()` as an empty string and
+	 * come back as the account email behind a 200; it is refused instead.
+	 *
+	 * @since FLYAFFILIATE_SINCE
+	 *
+	 * @param mixed           $value   The submitted value.
+	 * @param WP_REST_Request $request The request.
+	 * @param string          $param   The parameter name.
+	 *
+	 * @return true|WP_Error True when valid, WP_Error otherwise.
+	 */
+	public function validate_payment_email( $value, $request, $param ) {
+		if ( is_string( $value ) && '' === trim( $value ) ) {
+			return true;
+		}
+
+		return rest_validate_request_arg( $value, $request, $param );
 	}
 
 	/**
