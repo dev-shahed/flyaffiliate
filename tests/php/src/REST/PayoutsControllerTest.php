@@ -370,6 +370,26 @@ class PayoutsControllerTest extends FlyAffiliateTestCase {
 	}
 
 	/**
+	 * A period bound must be a calendar date: `2025-13-45` matches the Y-m-d
+	 * pattern and is no date.
+	 *
+	 * @return void
+	 */
+	public function test_an_impossible_period_date_is_refused(): void {
+		$this->acting_as( $this->admin_id );
+
+		foreach ( [ '2025-13-45', '2025-02-30', '2025-1-5', 'nope' ] as $bad ) {
+			$this->assertSame( 400, $this->post_request( '/payouts/preview', [ 'period_start' => $bad ] )->get_status(), $bad );
+			$this->assertSame( 400, $this->post_request( '/payouts/preview', [ 'period_end' => $bad ] )->get_status(), $bad );
+			$this->assertSame( 400, $this->post_request( '/payouts', [ 'period_start' => $bad ] )->get_status(), $bad );
+		}
+
+		$response = $this->post_request( '/payouts/preview', [ 'period_start' => '2024-02-29', 'period_end' => '2025-12-31' ] );
+
+		$this->assertSame( 200, $response->get_status() );
+	}
+
+	/**
 	 * Paying a batch that does not exist is 404, like reading or deleting it.
 	 *
 	 * @return void

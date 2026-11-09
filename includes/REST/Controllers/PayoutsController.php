@@ -284,14 +284,16 @@ class PayoutsController extends AdminBaseController {
 				'minimum' => 0,
 			],
 			'period_start'   => [
-				'description' => __( 'Only commissions created on or after this date (Y-m-d).', 'flyaffiliate' ),
-				'type' => 'string',
-				'pattern' => '^\d{4}-\d{2}-\d{2}$',
+				'description'       => __( 'Only commissions created on or after this date (Y-m-d).', 'flyaffiliate' ),
+				'type'              => 'string',
+				'pattern'           => '^\d{4}-\d{2}-\d{2}$',
+				'validate_callback' => [ $this, 'validate_date' ],
 			],
 			'period_end'     => [
-				'description' => __( 'Only commissions created on or before this date (Y-m-d).', 'flyaffiliate' ),
-				'type' => 'string',
-				'pattern' => '^\d{4}-\d{2}-\d{2}$',
+				'description'       => __( 'Only commissions created on or before this date (Y-m-d).', 'flyaffiliate' ),
+				'type'              => 'string',
+				'pattern'           => '^\d{4}-\d{2}-\d{2}$',
+				'validate_callback' => [ $this, 'validate_date' ],
 			],
 			'note'           => [
 				'description' => __( 'A description shown as the payout title.', 'flyaffiliate' ),
@@ -314,6 +316,33 @@ class PayoutsController extends AdminBaseController {
 				'default'              => [],
 			],
 		];
+	}
+
+	/**
+	 * A period bound: a calendar date written Y-m-d.
+	 *
+	 * The callback replaces core's checks for the argument, so it covers the
+	 * type and the pattern too; `2025-13-45` matches the pattern and is no date.
+	 *
+	 * @since FLYAFFILIATE_SINCE
+	 *
+	 * @param mixed           $value   The submitted value.
+	 * @param WP_REST_Request $request The request.
+	 * @param string          $param   The parameter name.
+	 *
+	 * @return true|WP_Error True when valid, WP_Error otherwise.
+	 */
+	public function validate_date( $value, $request, $param ) {
+		if ( is_string( $value ) && 1 === preg_match( '/^(\d{4})-(\d{2})-(\d{2})$/', $value, $parts ) && wp_checkdate( (int) $parts[2], (int) $parts[3], (int) $parts[1], $value ) ) {
+			return true;
+		}
+
+		return new WP_Error(
+			'rest_invalid_param',
+			// translators: %s: the parameter name.
+			sprintf( __( '%s must be a calendar date written as Y-m-d.', 'flyaffiliate' ), $param ),
+			[ 'status' => 400 ]
+		);
 	}
 
 	/**
