@@ -232,8 +232,7 @@ class Manager {
 	public function validate_field( array $field, $value, array $values = [] ): array {
 		$errors = [];
 
-		// A switch is on or off. Anything else is refused here, so it is never
-		// read as off and stored behind a 200 (ADR-0010: a failed save stores nothing).
+		// A switch is on or off; anything else is refused, never read as off (ADR-0010).
 		if ( in_array( (string) ( $field['variant'] ?? '' ), [ 'switch', 'danger_switch' ], true ) ) {
 			$states = [
 				(string) ( $field['enable_state']['value'] ?? 'on' ),

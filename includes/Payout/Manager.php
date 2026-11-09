@@ -1084,9 +1084,7 @@ class Manager {
 			return new WP_Error( 'flyaffiliate_commission_not_in_payout', __( 'That commission is not part of this payment.', 'flyaffiliate' ), [ 'status' => 404 ] );
 		}
 
-		// The last commission leaves with the payment, not alone: an unpaid
-		// payment of 0.00 would still be listed, marked paid and exported.
-		// delete() frees the commission the same way (ADR-0012).
+		// The last commission leaves with its payment, never alone; delete() frees it (ADR-0012).
 		if ( count( $payout->get_commissions() ) < 2 ) {
 			return new WP_Error(
 				'flyaffiliate_payout_last_commission',

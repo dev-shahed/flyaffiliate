@@ -915,14 +915,10 @@ class SettingsSchema {
 	 * @return true|string True when allowed, otherwise the message refusing it.
 	 */
 	public static function validate_referral_variable( $value ) {
-		$key = self::sanitize_referral_variable( $value );
-		$wp  = $GLOBALS['wp'] ?? null;
+		global $wp;
 
-		if ( ! $wp instanceof \WP ) {
-			return true;
-		}
-
-		$reserved = array_merge( (array) $wp->public_query_vars, (array) $wp->private_query_vars );
+		$key      = self::sanitize_referral_variable( $value );
+		$reserved = $wp instanceof \WP ? array_merge( $wp->public_query_vars, $wp->private_query_vars ) : [];
 
 		if ( in_array( $key, $reserved, true ) ) {
 			// translators: %s: the submitted referral variable.
