@@ -252,7 +252,8 @@ preview into one `unpaid` payment row per affiliate and sets `payout_id` on
 the commissions, which stay `unpaid`; `mark_paid()` / `pay_batch()` is what
 marks a payment and its commissions `paid`; `mark_unpaid()` reverses a mistake
 (commissions back to `unpaid`, still attached); `remove_commission()` and
-`delete()` only work on unpaid payments; `delete_batch()` refuses once any
+`delete()` only work on unpaid payments, and the last commission leaves only
+with its payment (`remove_commission()` answers 409 for it); `delete_batch()` refuses once any
 payment is paid. `preview()` skips every commission with a `payout_id`. Only
 the payout manager moves a commission to or from `paid` —
 `Commission\Manager::can_transition()` allows any move, so an admin can
