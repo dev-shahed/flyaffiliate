@@ -133,6 +133,42 @@ class TrackerTest extends FlyAffiliateTestCase {
 	}
 
 	/**
+	 * A malformed referral value credits nobody. Read through absint(), an array
+	 * (`?affiliate[]=…`) was 1 and `-5` or `5abc` was 5: a visit and a cookie
+	 * for an affiliate nobody linked to.
+	 *
+	 * @return void
+	 */
+	public function test_a_malformed_referral_value_credits_nobody(): void {
+		$affiliate_id = $this->factory()->affiliate->create();
+
+		$malformed = [
+			[ '999' ],
+			[ (string) $affiliate_id ],
+			'-' . $affiliate_id,
+			$affiliate_id . 'abc',
+			$affiliate_id . '.0',
+			' ',
+			'0',
+		];
+
+		foreach ( $malformed as $value ) {
+			$_GET['affiliate'] = $value;
+			$this->tracker->track();
+		}
+
+		$this->assertSame( 0, flyaffiliate()->tracking->count() );
+		$this->assertArrayNotHasKey( Tracker::COOKIE, $_COOKIE );
+
+		// The plain id still counts.
+		$_GET['affiliate'] = (string) $affiliate_id;
+		$this->tracker->track();
+
+		$this->assertSame( 1, flyaffiliate()->tracking->count() );
+		$this->assertSame( $affiliate_id, Tracker::parse( (string) $_COOKIE[ Tracker::COOKIE ] )['affiliate_id'] );
+	}
+
+	/**
 	 * An affiliate following their own link is not attributed.
 	 *
 	 * @return void
