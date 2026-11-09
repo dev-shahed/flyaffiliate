@@ -713,12 +713,18 @@ class Manager {
 	 *
 	 * @param string $batch_key The batch.
 	 *
-	 * @return int How many payments were marked paid.
+	 * @return int|WP_Error How many payments were marked paid, or not found for an unknown batch.
 	 */
-	public function pay_batch( string $batch_key ): int {
+	public function pay_batch( string $batch_key ) {
+		$payouts = $this->get_batch( $batch_key );
+
+		if ( [] === $payouts ) {
+			return $this->not_found();
+		}
+
 		$paid = 0;
 
-		foreach ( $this->get_batch( $batch_key ) as $payout ) {
+		foreach ( $payouts as $payout ) {
 			if ( $payout->is_paid() ) {
 				continue;
 			}

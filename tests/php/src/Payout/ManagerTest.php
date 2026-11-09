@@ -471,4 +471,16 @@ class ManagerTest extends FlyAffiliateTestCase {
 		$this->assertTrue( flyaffiliate()->payout->delete( $payout_id ) );
 		$this->assertSame( 0, (int) flyaffiliate()->commission->get( $commission )->get( 'payout_id' ), 'delete() frees it' );
 	}
+
+	/**
+	 * Paying a batch that does not exist is not found, not "0 paid".
+	 *
+	 * @return void
+	 */
+	public function test_pay_batch_refuses_an_unknown_batch(): void {
+		$result = flyaffiliate()->payout->pay_batch( 'nope' );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 404, $result->get_error_data()['status'] );
+	}
 }

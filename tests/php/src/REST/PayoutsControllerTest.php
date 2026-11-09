@@ -368,4 +368,17 @@ class PayoutsControllerTest extends FlyAffiliateTestCase {
 		$this->assertSame( 'manual', $updated->get_data()['payout_method'] );
 		$this->assertSame( 400, $this->put_request( '/affiliates/' . $id, [ 'payout_method' => 'nope' ] )->get_status() );
 	}
+
+	/**
+	 * Paying a batch that does not exist is 404, like reading or deleting it.
+	 *
+	 * @return void
+	 */
+	public function test_paying_an_unknown_batch_is_not_found(): void {
+		$this->acting_as( $this->admin_id );
+
+		$this->assertSame( 404, $this->post_request( '/payouts/batch/nope/pay' )->get_status() );
+		$this->assertSame( 404, $this->get_request( '/payouts/batch/nope' )->get_status() );
+		$this->assertSame( 404, $this->delete_request( '/payouts/batch/nope' )->get_status() );
+	}
 }

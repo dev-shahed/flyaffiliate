@@ -569,10 +569,12 @@ class PayoutsController extends AdminBaseController {
 	 *
 	 * @param WP_REST_Request $request The request.
 	 *
-	 * @return WP_REST_Response
+	 * @return WP_REST_Response|WP_Error
 	 */
 	public function pay_batch( $request ) {
-		return rest_ensure_response( [ 'paid' => flyaffiliate()->payout->pay_batch( (string) $request['batch_key'] ) ] );
+		$paid = flyaffiliate()->payout->pay_batch( (string) $request['batch_key'] );
+
+		return is_wp_error( $paid ) ? $paid : rest_ensure_response( [ 'paid' => $paid ] );
 	}
 
 	/**
