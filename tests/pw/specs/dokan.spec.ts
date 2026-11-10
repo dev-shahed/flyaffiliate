@@ -516,6 +516,93 @@ test.describe( 'Dokan vendor programs @dokan', () => {
 		}
 	} );
 
+	// ── Guide C3 / C5: cash on delivery debt and partial refunds ─────────
+
+	/**
+	 * Dokan's reverse withdrawal ledger for one order: debits − credits.
+	 * @param vendorOrder
+	 */
+	const owes = ( vendorOrder: number ) =>
+		php< number >( `
+			global $wpdb;
+			return (float) $wpdb->get_var( $wpdb->prepare( "SELECT COALESCE( SUM( debit ) - SUM( credit ), 0 ) FROM {$wpdb->prefix}dokan_reverse_withdrawal WHERE trn_id = %d", ${ vendorOrder } ) );
+		` );
+
+	test( '[DOK-COD-01] cash on delivery: the debt a vendor owes includes the affiliate commission, and follows it (guide C3, C5 R5, R6) @money', async () => {
+		const rw = php( `
+			$before = get_option( 'dokan_reverse_withdrawal', null );
+			update_option( 'dokan_reverse_withdrawal', array_merge( (array) $before, [ 'enabled' => 'on', 'payment_gateways' => [ 'cod' => 'cod' ] ] ) );
+			return $before;
+		` );
+		const before = setSettings( { reject_commissions_on_refund: 'on' } );
+
+		try {
+			const a = createVendor( { optIn: true, rate: 15 } );
+			const b = createVendor( { optIn: true, rate: 10 } );
+			const order = dokanCheckout( {
+				affiliateId: aff.id,
+				paymentMethod: 'cod',
+				items: [
+					{ productId: createVendorProduct( a.id, 100 ) },
+					{ productId: createVendorProduct( b.id, 100 ) },
+				],
+			} );
+			setOrderStatus( order.parent, 'completed' );
+			const subA = order.byVendor[ a.id ];
+			const subB = order.byVendor[ b.id ];
+
+			// C3: 20% marketplace + the affiliate commission.
+			expect( cents( owes( subA ) ) ).toBe( 3500 );
+			expect( cents( owes( subB ) ) ).toBe( 3000 );
+
+			// Rejecting B's commission gives the affiliate part back.
+			const [ rowB ] = byVendor( order.parent )[ b.id ];
+			await api.put( `/commissions/${ rowB.id }`, {
+				status: 'rejected',
+			} );
+			expect( cents( owes( subB ) ) ).toBe( 2000 );
+		} finally {
+			restoreSettings( before );
+			php( `
+				$b = json_decode( ${ lit( JSON.stringify( rw ) ) }, true );
+				null === $b ? delete_option( 'dokan_reverse_withdrawal' ) : update_option( 'dokan_reverse_withdrawal', $b );
+				return true;
+			` );
+		}
+	} );
+
+	test( '[DOK-REF-01] a partial refund of a vendor sub-order leaves the commission and its deduction alone (guide C5 R1) @money', () => {
+		const a = createVendor( { optIn: true, rate: 15 } );
+		const order = dokanCheckout( {
+			affiliateId: aff.id,
+			items: [ { productId: createVendorProduct( a.id, 100 ) } ],
+		} );
+		setOrderStatus( order.parent, 'completed' );
+		const sub = order.byVendor[ a.id ];
+		const [ row ] = byVendor( order.parent )[ a.id ];
+		expect( row ).toMatchObject( { status: 'unpaid', amount: 15 } );
+
+		// The guide's path: a refund request on the vendor's sub-order, approved
+		// (Dokan Pro → Refunds), as a vendor asks and the admin approves.
+		php( `
+			$o = wc_get_order( ${ sub } );
+			$items = [];
+			foreach ( $o->get_items() as $id => $item ) { $items[ $id ] = 50; }
+			$req = dokan_pro()->refund->create( [ 'order_id' => ${ sub }, 'refund_amount' => 50, 'refund_reason' => 'PW partial', 'item_qtys' => [], 'item_totals' => $items, 'item_tax_totals' => [], 'restock_items' => false, 'method' => 'false' ] );
+			if ( is_wp_error( $req ) ) { throw new Exception( $req->get_error_message() ); }
+			$done = $req->approve();
+			if ( is_wp_error( $done ) ) { throw new Exception( $done->get_error_message() ); }
+			return true;
+		` );
+
+		const [ after ] = byVendor( order.parent )[ a.id ];
+		expect( after ).toMatchObject( { status: 'unpaid', amount: 15 } );
+		// Dokan's order row: the $50 refund takes the vendor's $40 share back
+		// (refund minus the marketplace's 20%); the $15 commission stays
+		// deducted, so the vendor ends at 65 − 40 = $25 (guide C5 R1).
+		expect( cents( dokanOrderRow( sub )!.net_amount ) ).toBe( 2500 );
+	} );
+
 	// ── Hold periods (ADR-0008 §12) ──────────────────────────────────────
 
 	test( "[DOK-HOLD-01] Dokan's hold, then a vendor's own while allowed, then FlyAffiliate's", () => {
@@ -741,8 +828,31 @@ test.describe( 'Dokan vendor programs @dokan', () => {
 		try {
 			const page = await guest.newPage();
 			await page.goto( `/?affiliate=${ aff.id }` );
-			await page.goto( `/?add-to-cart=${ productA }` );
-			await page.goto( `/?add-to-cart=${ productB }` );
+			// Fill the cart, then check it holds both products: an add-to-cart
+			// sent before the session cookie lands can be dropped.
+			const inCart = async () =>
+				(
+					( await (
+						await page.request.get(
+							'/?rest_route=/wc/store/v1/cart'
+						)
+					).json() ) as { items: { id: number }[] }
+				 ).items.map( ( i ) => i.id );
+			for ( let i = 0; i < 3; i++ ) {
+				const have = await inCart();
+				const missing = [ productA, productB ].filter(
+					( id ) => ! have.includes( id )
+				);
+				if ( ! missing.length ) {
+					break;
+				}
+				for ( const id of missing ) {
+					await page.goto( `/?add-to-cart=${ id }` );
+				}
+			}
+			expect( ( await inCart() ).sort() ).toEqual(
+				[ productA, productB ].sort()
+			);
 			await page.goto( checkout );
 			await page
 				.locator( '#email' )
@@ -767,14 +877,19 @@ test.describe( 'Dokan vendor programs @dokan', () => {
 					page.url().match( /order-received\/(\d+)/ )?.[ 1 ]
 			);
 
-			const sub = php< Record< number, number > >( `
-				$by = [];
-				foreach ( wc_get_orders( [ 'parent' => ${ parent }, 'type' => 'shop_order', 'limit' => -1 ] ) as $o ) { $by[ (int) $o->get_meta( '_dokan_vendor_id' ) ] = $o->get_id(); }
-				return $by;
-			` );
-			expect( Object.keys( sub ).map( Number ).sort() ).toEqual(
-				[ a.id, b.id ].sort()
-			);
+			const subOrders = () =>
+				php< Record< number, number > >( `
+					$by = [];
+					foreach ( wc_get_orders( [ 'parent' => ${ parent }, 'type' => 'shop_order', 'limit' => -1 ] ) as $o ) { $by[ (int) $o->get_meta( '_dokan_vendor_id' ) ] = $o->get_id(); }
+					return $by;
+				` );
+			// Dokan may split a block-checkout order a moment after the thank-you page.
+			await expect
+				.poll( () => Object.keys( subOrders() ).map( Number ).sort(), {
+					timeout: 30 * 1000,
+				} )
+				.toEqual( [ a.id, b.id ].sort() );
+			const sub = subOrders();
 
 			const rows = orderCommissions( parent );
 			expect( rows ).toHaveLength( 1 );

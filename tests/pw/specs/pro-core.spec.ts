@@ -113,11 +113,16 @@ test.describe( 'FlyAffiliate Pro core @pro', () => {
 				available: boolean;
 			}
 		>;
+		// Dokan's extension is available only with Dokan running; without it the
+		// registry says what is missing (a free + Pro site without Dokan).
+		const dokan = php< boolean >( `return function_exists( 'dokan' );` );
 		expect( byId.dokan ).toMatchObject( {
 			category: 'integration',
-			requirements: [],
-			available: true,
+			available: dokan,
 		} );
+		expect( byId.dokan.requirements ).toEqual(
+			dokan ? [] : [ 'Dokan plugin is required for this extension.' ]
+		);
 		expect( byId.paypal ).toMatchObject( {
 			category: 'payout_method',
 			requirements: [],
@@ -164,7 +169,11 @@ test.describe( 'FlyAffiliate Pro core @pro', () => {
 
 	test( '[PRO-EXT-04] an extension whose platform is missing cannot be switched on', async () => {
 		await switchExtension( api, 'dokan', false );
-		wp( [ 'plugin', 'deactivate', 'dokan-pro', 'dokan-lite' ] );
+		// On a site without Dokan the platform is already missing.
+		const hadDokan = php< boolean >( `return function_exists( 'dokan' );` );
+		if ( hadDokan ) {
+			wp( [ 'plugin', 'deactivate', 'dokan-pro', 'dokan-lite' ] );
+		}
 
 		try {
 			const dokan = (
@@ -176,13 +185,15 @@ test.describe( 'FlyAffiliate Pro core @pro', () => {
 			const res = await switchExtension( api, 'dokan', true );
 			expect( res.status ).toBeGreaterThanOrEqual( 400 );
 		} finally {
-			wp( [ 'plugin', 'activate', 'dokan-lite', 'dokan-pro' ] );
+			if ( hadDokan ) {
+				wp( [ 'plugin', 'activate', 'dokan-lite', 'dokan-pro' ] );
+			}
 		}
 
 		expect(
 			( await api.get( '/flyaffiliate-pro/v1/extensions/dokan' ) ).body
 				.available
-		).toBe( true );
+		).toBe( hadDokan );
 	} );
 
 	// ── The license is the one gate (ADR-0003) ────────────────────────────

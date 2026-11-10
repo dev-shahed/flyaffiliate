@@ -7,7 +7,7 @@
  * `FLYAFFILIATE_WP_ENV_DIR=<pro worktree>` and `BASE_URL`. Pro owns the Dokan
  * extension (Pro ADR-0006, ADR-0008); FlyAffiliate only provides the seams.
  */
-import { lit, php } from './wp';
+import { lit, php, wp } from './wp';
 import { PASSWORD, stamp } from './fixtures';
 
 /** Pro's option keys in Dokan's `dokan_selling` section (Pro `Settings`). */
@@ -55,7 +55,7 @@ export type DokanSnapshot = {
 export function setMarketplace(
 	selling: Record< string, string | number | null >
 ): DokanSnapshot {
-	return php< DokanSnapshot >( `
+	const snapshot = php< DokanSnapshot >( `
 		$before = [
 			'selling' => (array) get_option( 'dokan_selling', [] ),
 			'license' => get_option( 'flyaffiliate_pro_license', null ),
@@ -68,7 +68,6 @@ export function setMarketplace(
 		// An environment prerequisite, so it is not restored.
 		if ( '' === (string) get_option( 'permalink_structure' ) ) {
 			update_option( 'permalink_structure', '/%postname%/' );
-			flush_rewrite_rules( true );
 		}
 		$selling = $before['selling'];
 		// Empty, not removed: Dokan 5.3 mirrors dokan_selling and dokan_admin_settings
@@ -84,6 +83,9 @@ export function setMarketplace(
 		}
 		return $before;
 	` );
+	// The rules and .htaccess for those permalinks (see preparePro()).
+	wp( [ 'rewrite', 'flush', '--hard' ] );
+	return snapshot;
 }
 
 /**

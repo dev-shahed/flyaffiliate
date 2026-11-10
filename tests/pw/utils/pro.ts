@@ -10,7 +10,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import type { Api } from './api';
-import { lit, php } from './wp';
+import { lit, php, wp } from './wp';
 
 /** Whether this site runs FlyAffiliate Pro. */
 export function proReady(): boolean {
@@ -36,7 +36,7 @@ export type ProSnapshot = {
  * option the Pro specs touch, for `restorePro()`.
  */
 export function preparePro(): ProSnapshot {
-	return php< ProSnapshot >( `
+	const snapshot = php< ProSnapshot >( `
 		$before = [
 			'license' => get_option( 'flyaffiliate_pro_license', null ),
 			'extensions' => get_option( 'flyaffiliate_pro_active_extensions', null ),
@@ -49,9 +49,12 @@ export function preparePro(): ProSnapshot {
 		if ( '' === (string) get_option( 'permalink_structure' ) ) {
 			update_option( 'permalink_structure', '/%postname%/' );
 		}
-		flush_rewrite_rules( true );
 		return $before;
 	` );
+	// .htaccess too: inside \`wp eval\` flush_rewrite_rules( true ) cannot write it
+	// (save_mod_rewrite_rules() lives in wp-admin), \`wp rewrite flush --hard\` can.
+	wp( [ 'rewrite', 'flush', '--hard' ] );
+	return snapshot;
 }
 
 export function restorePro( snapshot: ProSnapshot ): void {

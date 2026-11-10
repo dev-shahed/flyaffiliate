@@ -216,6 +216,27 @@ test.describe( 'Affiliate registration', () => {
 		);
 	} );
 
+	test( '[REG-10] an email that already has a WordPress account makes that user a pending affiliate, no second user (guide A3.4)', async () => {
+		const user = createUser();
+		const users = () =>
+			php< number >(
+				`return count( get_users( [ 'search' => ${ lit(
+					user.email
+				) }, 'search_columns' => [ 'user_email' ], 'fields' => 'ID' ] ) );`
+			);
+		await submit( user.email );
+		await expect( page ).not.toHaveURL( /flyaffiliate_error=/ );
+		expect( users() ).toBe( 1 );
+		expect( affiliateByEmail( user.email ) ).toMatchObject( {
+			status: 'pending',
+		} );
+		expect(
+			php< number >(
+				`return (int) flyaffiliate()->affiliate->get_by_user( ${ user.userId } )?->get_id();`
+			)
+		).toBeGreaterThan( 0 );
+	} );
+
 	test( '[REG-09] an invalid address is refused', async () => {
 		await page.goto( register );
 		const input = page.locator( '#flyaffiliate-register-email' );

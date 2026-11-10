@@ -459,6 +459,61 @@ test.describe( 'PayPal Payouts @pro @money', () => {
 		expect( transfersOf( created.body.payouts[ 0 ].id ) ).toHaveLength( 0 );
 	} );
 
+	test( '[PP-PAY-11] a paid payment PayPal later reports reversed goes back to unpaid, flagged, and is not paid twice (guide B3.5, C6)', async () => {
+		setPayPalMode( { item_status: 'SUCCESS' } );
+		const { aff, commission: id } = await owed( 6 );
+		const created = ( await payout( [ aff.id ] ) ).body;
+		const paymentId = created.payouts[ 0 ].id;
+		await refresh( created.batch_key );
+		expect( ( await payment( paymentId ) ).status ).toBe( 'paid' );
+		expect( ( await commission( id ) ).status ).toBe( 'paid' );
+
+		// The recipient refunds it, or PayPal reverses it: PayPal says so in a
+		// signed webhook (the scheduled check only follows unpaid payments), and
+		// Pro confirms it with PayPal before undoing anything.
+		setPayPalMode( { item_status: 'REVERSED', verify: 'SUCCESS' } );
+		setWebhookId( 'WH-PW' );
+		const sentBefore = sentFor( paymentId ).length;
+		const event = itemEventFor( paymentId );
+		event.event_type = 'PAYMENT.PAYOUTS-ITEM.REVERSED';
+		event.resource.transaction_status = 'REVERSED';
+		const hook = await postWebhook( event, signatureHeaders() );
+		expect( hook.status, JSON.stringify( hook.body ) ).toBeLessThan( 300 );
+		const summary = await api.get( '/payouts', {
+			batch_key: created.batch_key,
+		} );
+		const back = await payment( paymentId );
+		expect( back.status, JSON.stringify( back ) ).toBe( 'unpaid' );
+		// Stored as a failed attempt carrying PayPal's reason, so a person sees
+		// it needs attention before paying again (guide B3.5 "flagged").
+		expect( back.transfer?.status ).toBe( 'failed' );
+		expect( back.transfer?.message ).toMatch( /Reversed by PayPal/ );
+		expect( summary.status ).toBe( 200 );
+		expect( ( await commission( id ) ).status ).toBe( 'unpaid' );
+		// Nothing is sent again by itself: a person checks PayPal first.
+		expect( sentFor( paymentId ).length ).toBe( sentBefore );
+		setPayPalMode( { item_status: 'SUCCESS', verify: 'FAILURE' } );
+	} );
+
+	test( '[PP-PAY-12] a currency PayPal does not pay out in fails before sending (guide B3.6.7)', async () => {
+		const before = setSettings( { currency: 'BDT' } );
+
+		try {
+			const { aff } = await owed( 5 );
+			const created = await payout( [ aff.id ] );
+			const paymentId = created.body.payouts?.[ 0 ]?.id;
+			expect( paymentId, JSON.stringify( created.body ) ).toBeTruthy();
+			expect( sentFor( paymentId ) ).toHaveLength( 0 );
+			const failed = await payment( paymentId );
+			expect( failed.locked ).toBe( false );
+			expect( JSON.stringify( failed ) ).toMatch(
+				/does not pay out in BDT/
+			);
+		} finally {
+			restoreSettings( before );
+		}
+	} );
+
 	test( '[PP-PAY-10] switching PayPal off with a payment in flight leaves it locked until PayPal is back', async () => {
 		setPayPalMode( { item_status: 'PENDING' } );
 		const { aff } = await owed( 1.75 );

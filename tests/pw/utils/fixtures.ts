@@ -399,9 +399,12 @@ export type Row = {
  * @param orderId
  */
 export function orderCommissions( orderId: number ): Row[] {
+	// Manual rows are left out: `wp flyaffiliate seed` (global-setup) gives its
+	// manual commissions random order ids, which collide with orders the specs
+	// create (BUG-012). A spec reads a manual commission by its own id.
 	return php< Row[] >( `
 		global $wpdb;
-		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}flyaffiliate_commissions WHERE order_id = %d ORDER BY id ASC", ${ orderId } ), ARRAY_A );
+		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}flyaffiliate_commissions WHERE order_id = %d AND source <> 'manual' ORDER BY id ASC", ${ orderId } ), ARRAY_A );
 		return array_map( function ( $r ) {
 			foreach ( [ 'id', 'affiliate_id', 'order_id', 'vendor_id', 'payout_id' ] as $k ) { $r[ $k ] = (int) $r[ $k ]; }
 			foreach ( [ 'amount', 'base_amount', 'rate' ] as $k ) { $r[ $k ] = (float) $r[ $k ]; }

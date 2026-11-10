@@ -4,9 +4,10 @@
  */
 import { chromium, type FullConfig } from '@playwright/test';
 import { execSync } from 'child_process';
-import { mkdirSync } from 'fs';
+import { mkdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { ADMIN, logIn } from './utils/site';
+import { lit, php } from './utils/wp';
 
 async function globalSetup( config: FullConfig ): Promise< void > {
 	const baseURL = config.projects[ 0 ].use.baseURL ?? 'http://localhost:8888';
@@ -19,6 +20,22 @@ async function globalSetup( config: FullConfig ): Promise< void > {
 			{ stdio: 'inherit', cwd: join( __dirname, '..', '..' ) }
 		);
 	}
+
+	// Test helpers (fixtures/pw-helpers.php): the PHP error log the last spec
+	// reads (zz-php-log.spec.ts), a mail catcher, a payout method that cannot
+	// pay. The log starts empty, so it holds only this run.
+	php( `
+		wp_mkdir_p( WPMU_PLUGIN_DIR );
+		file_put_contents( WPMU_PLUGIN_DIR . '/pw-helpers.php', ${ lit(
+			readFileSync(
+				join( __dirname, 'fixtures', 'pw-helpers.php' ),
+				'utf8'
+			)
+		) } );
+		file_put_contents( WP_CONTENT_DIR . '/pw-php.log', '' );
+		delete_option( 'pw_mail_log' );
+		return true;
+	` );
 
 	mkdirSync( join( __dirname, '.auth' ), { recursive: true } );
 

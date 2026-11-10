@@ -110,11 +110,28 @@ export class Api {
 			headers[ 'content-type' ] = 'application/json';
 		}
 
-		const res = await fetch( this.url( path, query ), {
-			method,
-			headers,
-			body: data === undefined ? undefined : JSON.stringify( data ),
-		} );
+		const send = () =>
+			fetch( this.url( path, query ), {
+				method,
+				headers,
+				body: data === undefined ? undefined : JSON.stringify( data ),
+			} );
+		let res: Response;
+
+		try {
+			res = await send();
+		} catch ( error ) {
+			// Node's fetch reuses a kept-alive socket Apache has just closed
+			// ("other side closed"): the request never reached WordPress, so
+			// sending it once more is safe, POST included.
+			if (
+				( error as { cause?: { code?: string } } ).cause?.code !==
+				'UND_ERR_SOCKET'
+			) {
+				throw error;
+			}
+			res = await send();
+		}
 		const text = await res.text();
 		let body: any = text;
 

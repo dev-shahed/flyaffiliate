@@ -306,7 +306,7 @@ test.describe( 'An active affiliate', () => {
 		// Known bug (found 2026-11-04): the tab list (Overview … Settings) does
 		// not wrap or scroll inside its row, so at 375px the page itself scrolls
 		// sideways to 662px. Remove `test.fail()` once the tabs fit.
-		test.fail();
+		// Fixed by PR #22 (was pinned with test.fail()).
 		const page = await context.newPage();
 		await page.setViewportSize( { width: 375, height: 800 } );
 		await page.goto( dashboard );

@@ -317,7 +317,10 @@ test.describe( 'What the pages load', () => {
 			'payouts',
 			'settings',
 		] ) {
-			await page.goto( `${ pageUrls().dashboard }&tab=${ tab }` );
+			// Plain or pretty permalinks: join the tab with ? or &.
+			const url = new URL( pageUrls().dashboard );
+			url.searchParams.set( 'tab', tab );
+			await page.goto( url.toString() );
 			await expect(
 				page.getByTestId( 'flyaffiliate-dashboard' )
 			).toBeVisible();
@@ -335,10 +338,8 @@ test.describe( 'What the pages load', () => {
 		page,
 		browser,
 	} ) => {
-		// BUG-003 (tests/pw/PRODUCT_BUGS.md): the date-range trigger renders a
-		// <Button> inside plugin-ui's own trigger button. Remove `test.fail()`
-		// once fixed.
-		test.fail();
+		// Guards BUG-003 (tests/pw/PRODUCT_BUGS.md, fixed): the date-range
+		// trigger once rendered a <Button> inside plugin-ui's own trigger button.
 		const nested = () =>
 			document.querySelectorAll( 'button button' ).length;
 
