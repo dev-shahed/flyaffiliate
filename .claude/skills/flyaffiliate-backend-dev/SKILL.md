@@ -202,6 +202,10 @@ with the `flyaffiliate_settings_schema` filter or a node's generated
   sets the signed cookie `flyaffiliate_ref` (`affiliate|visit|hmac`, lifetime =
   `cookie_duration` days). `Tracker::sign()` / `parse()` build and verify it;
   tests set `$_COOKIE[ Tracker::COOKIE ]` with `sign()`.
+- Read the referral variable with `Tracker::get_variable()`, never the option.
+  A name in `flyaffiliate_get_reserved_query_vars()` (WordPress's query
+  variables, filter `flyaffiliate_reserved_query_vars`) is refused on save
+  and, when already stored, read as `affiliate`: `/?p=12` is a post link.
 - `Integrations\WooCommerce\OrderAttribution` hooks both
   `woocommerce_checkout_order_created` and
   `woocommerce_store_api_checkout_order_processed`. Guards in order:

@@ -55,7 +55,12 @@ class Tracker implements Hookable {
 	public static function get_variable(): string {
 		$variable = (string) flyaffiliate_get_option( 'referral_variable', 'affiliate' );
 
-		return '' !== $variable ? $variable : 'affiliate';
+		// A reserved name saved before saves refused it is not read: `/?p=12` is a post link.
+		if ( '' === $variable || in_array( $variable, flyaffiliate_get_reserved_query_vars(), true ) ) {
+			return 'affiliate';
+		}
+
+		return $variable;
 	}
 
 	/**

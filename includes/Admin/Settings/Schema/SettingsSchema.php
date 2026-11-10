@@ -915,12 +915,9 @@ class SettingsSchema {
 	 * @return true|string True when allowed, otherwise the message refusing it.
 	 */
 	public static function validate_referral_variable( $value ) {
-		global $wp;
+		$key = self::sanitize_referral_variable( $value );
 
-		$key      = self::sanitize_referral_variable( $value );
-		$reserved = $wp instanceof \WP ? array_merge( $wp->public_query_vars, $wp->private_query_vars ) : [];
-
-		if ( in_array( $key, $reserved, true ) ) {
+		if ( in_array( $key, flyaffiliate_get_reserved_query_vars(), true ) ) {
 			// translators: %s: the submitted referral variable.
 			return sprintf( __( '"%s" is a WordPress query variable. Choose another referral variable.', 'flyaffiliate' ), $key );
 		}
