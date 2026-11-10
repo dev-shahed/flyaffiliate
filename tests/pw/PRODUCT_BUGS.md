@@ -12,17 +12,24 @@ layout, **Low** = quirk that harms no one.
 
 | Id | Severity | Summary |
 |---|---|---|
-| BUG-004 | High | Referral variable accepts WordPress query vars (`p`): post links credit affiliates |
-| BUG-011 | High | Refused payout preview leaves the old one payable (pays everyone) |
-| BUG-002 | Medium | `?affiliate[]=…` credits affiliate #1; `-5`/`5abc` credit #5 |
-| BUG-005 | Medium | Invalid switch value saved as `off` with 200 |
-| BUG-009 | Medium | `/me` blanks the payment email on invalid input |
-| BUG-001 | Medium | Affiliate dashboard scrolls sideways on phones |
-| BUG-006 | Low | Removing the last commission leaves a 0.00 payment |
-| BUG-010 | Low | Unknown payment id shows an empty payment |
-| BUG-003 | Low | Date-range picker nests a button in a button |
-| BUG-007 | Low | Paying an unknown batch answers 200 |
-| BUG-008 | Low | Impossible calendar date passes the period check |
+| BUG-004 | High | Referral variable accepts WordPress query vars (`p`): post links credit affiliates — **partly fixed in PR #22**: new saves refused; a value already stored still tracks (see BUG-004) |
+| BUG-011 | High | Refused payout preview leaves the old one payable (pays everyone) — **fixed in PR #22** |
+| BUG-002 | Medium | `?affiliate[]=…` credits affiliate #1; `-5`/`5abc` credit #5 — **fixed in PR #22** |
+| BUG-005 | Medium | Invalid switch value saved as `off` with 200 — **fixed in PR #22** |
+| BUG-009 | Medium | `/me` blanks the payment email on invalid input — **fixed in PR #22** |
+| BUG-001 | Medium | Affiliate dashboard scrolls sideways on phones — **fixed in PR #22** |
+| BUG-006 | Low | Removing the last commission leaves a 0.00 payment — **fixed in PR #22** |
+| BUG-010 | Low | Unknown payment id shows an empty payment — **fixed in PR #22** |
+| BUG-003 | Low | Date-range picker nests a button in a button — **fixed**, SEC-11 now passes |
+| BUG-007 | Low | Paying an unknown batch answers 200 — **fixed in PR #22** |
+| BUG-008 | Low | Impossible calendar date passes the period check — **fixed in PR #22** |
+| BUG-012 | Low | Seeder gives manual commissions random (real) order ids — dev tool |
+
+## Status after PR #22 (fix/e2e-product-bugs, merged locally 10 Nov 2026)
+
+Re-tested with the suite: BUG-001, 002, 005, 006, 007, 008, 009, 010 and 011 are fixed
+(their tests now run as normal tests). **BUG-004 is only partly fixed** — see its residual
+below. BUG-012 (seeder) and PRO-BUG-001 (Pro repo) are not in the PR.
 
 ## Open
 
@@ -38,7 +45,10 @@ layout, **Low** = quirk that harms no one.
   horizontally by 287px; "Commissions" and the tabs after it are off-screen.
 - **Test:** `specs/affiliate-dashboard.spec.ts` › `[DSH-15]` (`test.fail()`).
 
-### BUG-003 — The date-range picker nests a button inside a button (Low)
+### BUG-003 — The date-range picker nests a button inside a button (Low) — FIXED
+
+> Fixed in source: the dashboard's picker trigger no longer renders its own
+> `<Button>`. SEC-11 runs as a normal test now (no `test.fail()`).
 
 - **Where:** the date-range trigger on the admin Dashboard
   (`src/admin/pages/dashboard/index.tsx`) and on the affiliate dashboard
@@ -79,6 +89,15 @@ layout, **Low** = quirk that harms no one.
 
 ### BUG-004 — WordPress's own query variables are accepted as the referral variable (High)
 
+> **PR #22: partly fixed.** `SettingsSchema::validate_referral_variable()` now refuses a
+> reserved name when it is saved (REST and the Settings form answer 400 with a message).
+> **Residual:** a store that saved `p` (or another reserved name) on 1.0.0 / 1.0.1 keeps it
+> after updating — `Tracking\Tracker` reads the stored option as is (`Tracker.php:56`) and no
+> upgrade routine resets it — so every `/?p=<post>` link still credits an affiliate there.
+> Fix: have the tracker ignore a stored reserved name (fall back to `affiliate`), or reset it
+> in an `Upgrade\Upgrades` step. Test: `negative-affiliate.spec.ts` › "with the referral
+> variable set to "p"…" (still `test.fail()`, it writes `p` straight into the option).
+
 - **Where:** `SettingsSchema::sanitize_referral_variable()` — only
   `sanitize_key()`, no list of reserved names.
 - **Steps:** Settings → General → Tracking → Referral variable = `p` (also
@@ -111,7 +130,7 @@ layout, **Low** = quirk that harms no one.
   `mode: selected` with **every affiliate of the old preview** — on the test
   site 14 affiliates, $160.50 — while the form says nobody is chosen.
 - **Test:** `specs/negative-admin-ui.spec.ts` › `a refused preview leaves no
-  older preview to pay` (`test.fail()`). Changing a filter without previewing
+  older preview to pay` (`test.fail()`); the screen now previews everyone on load, so the first visit is enough. Changing a filter without previewing
   again was checked and is safe.
 
 ### BUG-009 — `/me` blanks the payment email on invalid input (Medium)
@@ -198,3 +217,38 @@ layout, **Low** = quirk that harms no one.
 ## Fixed
 
 _None yet._
+
+### BUG-012 — The seeder gives manual commissions random order ids (Low, dev tool)
+
+- **Where:** `includes/CLI/Seeder.php:133` — `'order_id' => wp_rand( 1000, 9999 )`
+  on commissions whose source is `manual`.
+- **Steps:** `wp flyaffiliate seed` on a development site that has (or later
+  gets) WooCommerce orders numbered 1000–9999.
+- **Expected:** sample commissions point at no order (0), or at orders the
+  seeder created.
+- **Actual:** they claim real orders' ids, so an order's commissions include
+  sample rows, and order links in the Commissions list open unrelated orders.
+  Development-only (`WP_ENVIRONMENT_TYPE=development`), so no store is hit.
+- **Found by:** intermittent e2e failures — specs that read "the commissions of
+  this order" picked up seeded rows. `utils/fixtures.ts` `orderCommissions()`
+  now leaves manual rows out.
+
+## FlyAffiliate Pro
+
+### PRO-BUG-001 — Translations load too early when Dokan is not active (Low)
+
+- **Where:** `flyaffiliate-pro/includes/Extensions/Dokan/Extension.php:166`
+  (`get_unmet_requirements()`), called from `Extensions\Manager::load_active_extensions()`
+  (`Manager.php:308`) inside `init_plugin()` (`flyaffiliate-pro-class.php:219`),
+  which runs on `plugins_loaded`.
+- **Steps:** FlyAffiliate + FlyAffiliate Pro + WooCommerce active, **Dokan not
+  active**, WordPress 6.7+ with `WP_DEBUG` on. Load any page or run any WP-CLI
+  command.
+- **Expected:** no notice; requirement messages are translated when shown.
+- **Actual:** `PHP Notice: Function _load_textdomain_just_in_time was called
+  incorrectly. Translation loading for the flyaffiliate-pro domain was
+  triggered too early` on every request — the "Dokan plugin is required…"
+  string is built with `__()` before `init`. With Dokan active the check passes
+  without translating, so the paired Pro + Dokan env never shows it.
+- **Fix hint:** return codes from `get_unmet_requirements()` at load time and
+  translate them where they are displayed, or defer the check to `init`.

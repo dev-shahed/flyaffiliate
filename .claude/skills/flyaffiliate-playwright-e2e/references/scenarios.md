@@ -45,7 +45,7 @@ inactive | suspended`. Payment: `unpaid | paid`. Payout (computed):
 | WC-05 | Product rate > `max_rate` | Clamped to max @money ✓ attribution |
 | WC-06 | `max_rate` lowered after product rate saved | New orders clamp to new max ✓ attribution |
 | WC-07 | `exclude_shipping` on/off | Base excludes/includes shipping ✓ attribution |
-| WC-08 | `exclude_tax` on/off (taxes enabled) | Base excludes/includes tax |
+| WC-08 | `exclude_tax` on/off (taxes enabled) | Base excludes/includes tax ✓ release-critical |
 | WC-09 | Coupon discount on item | Base is discounted line total ✓ attribution |
 | WC-10 | `rate_type` stored | Row records `percentage` (ADR-0009 §3) ✓ attribution |
 | WC-11 | Order paid at checkout (card-like gateway → processing) | Commission `unpaid` right after checkout, whatever hold (ADR-0014 §1) ✓ attribution |
@@ -55,7 +55,7 @@ inactive | suspended`. Payment: `unpaid | paid`. Payout (computed):
 | WC-15 | Non-referred order | No commission ✓ attribution |
 | WC-16 | `woocommerce_enabled` off | Referred order creates no commission; restore ✓ attribution |
 | WC-17 | Same checkout hook replayed / order saved twice | Still one commission per order item (keyed `order_item_id`) @money ✓ attribution |
-| WC-18 | Zero-price item | Commission 0 or none — pin current behaviour |
+| WC-18 | Zero-price item | Commission 0 or none — pin current behaviour ✓ negative-money |
 | WC-19 | WC Analytics → Overview | "Affiliate Commission" box shows sum of counted orders' commissions |
 | WC-20 | Commission `note` | Shown as info tip on Commissions list and affiliate dashboard |
 
@@ -69,7 +69,7 @@ inactive | suspended`. Payment: `unpaid | paid`. Payout (computed):
 | SYN-04 | → refunded, switch on | `pending`/`unpaid` → `rejected`; restore switch @money ✓ order-sync |
 | SYN-05 | Rejected order → processing/completed | `rejected` → `unpaid` (whoever rejected) ✓ order-sync |
 | SYN-06 | failed/cancelled/refunded → on-hold / pending payment | Restored to `pending` ✓ order-sync |
-| SYN-07 | Untrash an order | Restored per rule |
+| SYN-07 | Untrash an order | Restored per rule ✓ release-critical |
 | SYN-08 | Status change fired twice (same status) | No double transition, no duplicate row @money ✓ order-sync |
 | SYN-09 | Commission in an **unpaid payment**, order cancelled | Commission untouched (locked); refusal reported, not silent @money ✓ order-sync |
 | SYN-10 | `paid` commission, order refunded | Untouched — never reversed @money ✓ order-sync |
@@ -87,7 +87,7 @@ inactive | suspended`. Payment: `unpaid | paid`. Payout (computed):
 | COM-04 | WC origin with non-existent order | Toast "no WooCommerce order #…"; nothing stored. ✓ commissions |
 | COM-05 | WC origin with existing order | Created |
 | COM-06 | Manual commission stays as given | Pending one never auto-becomes unpaid (rule 4) |
-| COM-07 | Validation: empty affiliate, negative / non-numeric amount, >2 decimals | Inline errors, no request or 400 |
+| COM-07 | Validation: empty affiliate, negative / non-numeric amount, >2 decimals | Inline errors, no request or 400 ✓ negative-admin-ui |
 | COM-08 | Edit: ID, affiliate, origin, date disabled; amount editable | ✓ commissions |
 | COM-09 | Edit amount of WC-origin unpaid commission | Sticks; rate re-derived; no recalculation later @money |
 | COM-10 | Status transitions via row actions: every allowed pair incl. rejected → pending/unpaid | Moves, toast, tab counts shift |
@@ -129,7 +129,7 @@ inactive | suspended`. Payment: `unpaid | paid`. Payout (computed):
 | PAY-24 | Locked payment (needs a test method registered via mu-plugin fixture with state `processing`) | Delete, remove, mark paid/unpaid, edit its commissions all refused (ADR-0016) |
 | PAY-25 | Method not registered (mu-plugin removed) | Payment locked; payout `needs_attention` |
 | PAY-26 | Failed transfer | Retry available; mark paid by hand records Manual |
-| PAY-27 | "Switch to Manual" override on preview | Payment created with method manual |
+| PAY-27 | "Switch to Manual" override on preview | Payment created with method manual ✓ release-critical |
 
 PAY-24..27 need a fixture mu-plugin under `tests/pw/fixtures/` mapped through
 `.wp-env.override.json` `mappings` that registers a fake method on
@@ -143,7 +143,7 @@ it when writing those tests.
 | AFF-01 | List tabs by status, search | ✓ affiliates |
 | AFF-02 | Add affiliate for existing user, status active | Appears; user gets `flyaffiliate_affiliate` role |
 | AFF-03 | Same user twice | 409 conflict toast |
-| AFF-04 | "Send welcome email" ticked/unticked | Email sent only when ticked (check via mail catcher or `wp_mail` log mu-plugin) |
+| AFF-04 | "Send welcome email" ticked/unticked | Email sent only when ticked (check via mail catcher or `wp_mail` log mu-plugin) ✓ release-critical |
 | AFF-05 | Status change active → inactive → suspended → active | Tracking obeys each (TRK-03) |
 | AFF-06 | Affiliate page: referral links list read-only, figures | Admin cannot add/remove |
 | AFF-07 | Delete affiliate | Their saved referral links deleted; commissions & visits kept |
@@ -194,9 +194,9 @@ it when writing those tests.
 | SEC-05 | Affiliate deletes another affiliate's referral link id | 403/404 ✓ affiliate-dashboard |
 | SEC-06 | Stored XSS: affiliate promo method / payment email / payout note `<img src=x onerror=…>` | Rendered escaped in admin & dashboard; no dialog fires (listen `page.on('dialog')` → fail) ✓ security |
 | SEC-07 | REST without nonce from logged-in cookie | 401 `rest_cookie_invalid_nonce` ✓ security |
-| SEC-08 | `admin_post_flyaffiliate_*` without nonce | Refused |
+| SEC-08 | `admin_post_flyaffiliate_*` without nonce | Refused ✓ release-critical |
 | SEC-09 | No external requests from admin/dashboard pages | `page.on('request')` sees only same-origin (ADR-0013 build strips remote hosts) ✓ security |
-| SEC-10 | No PHP notices/warnings | `wp-content/debug.log` gains no `flyaffiliate` lines during the suite (check in globalTeardown) |
+| SEC-10 | No PHP notices/warnings | `wp-content/debug.log` gains no `flyaffiliate` lines during the suite (check in globalTeardown) ✓ zz-php-log |
 | SEC-11 | No console errors on every admin route and the dashboard | `page.on('console')` error count 0 ✓ security (nested-button part test.fail: BUG-003) |
 
 ## 10. Settings — ADR-0010, ADR-0014
@@ -240,11 +240,11 @@ it when writing those tests.
 | STD-03 | Without WC: WC-origin commissions keep rows, editable, reference shown as plain number, payable | ✓ standalone |
 | STD-04 | Without WC: currency select uses built-in list | ✓ standalone |
 | STD-05 | Reactivate WC | Pending WC commissions resume following orders ✓ standalone |
-| STD-06 | Deactivate plugin | Daily hook cleared; reactivate restores; data intact |
-| STD-07 | Uninstall with `data_clear_on_uninstall` off | Tables and option kept |
-| STD-08 | Uninstall with it on (throwaway env) | Tables, option, pages, role removed |
+| STD-06 | Deactivate plugin | Daily hook cleared; reactivate restores; data intact ✓ release-critical |
+| STD-07 | Uninstall with `data_clear_on_uninstall` off | Tables and option kept ✓ release-critical |
+| STD-08 | Uninstall with it on (throwaway env) | Tables, option, pages, role removed ✓ release-critical |
 | STD-09 | Fresh activation | Tables created, dashboard/register pages created, wizard prompted |
-| STD-10 | Release zip install (not dev tree) | Activates, admin.js/dashboard.js load (no 404 assets), no `src/` shipped |
+| STD-10 | Release zip install (not dev tree) | Activates, admin.js/dashboard.js load (no 404 assets), no `src/` shipped ✓ release-zip |
 
 ## 13. Cross-cutting UX
 
