@@ -407,6 +407,7 @@ class PayoutsControllerTest extends FlyAffiliateTestCase {
 		$view = $this->get_request( '/affiliates/' . $id )->get_data();
 
 		$this->assertSame( 'fake', $view['payout_method'] );
+		$this->assertSame( 'fake', $view['effective_payout_method'] );
 		$this->assertArrayNotHasKey( 'payout_details', $view );
 
 		$edit = $this->get_request( '/affiliates/' . $id, [ 'context' => 'edit' ] )->get_data();
@@ -417,7 +418,33 @@ class PayoutsControllerTest extends FlyAffiliateTestCase {
 
 		$this->assertSame( 200, $updated->get_status() );
 		$this->assertSame( 'manual', $updated->get_data()['payout_method'] );
+		$this->assertSame( 'manual', $updated->get_data()['effective_payout_method'] );
 		$this->assertSame( 400, $this->put_request( '/affiliates/' . $id, [ 'payout_method' => 'nope' ] )->get_status() );
+	}
+
+	/**
+	 * The method that pays an affiliate is their choice while it is switched on, the default otherwise.
+	 *
+	 * @return void
+	 */
+	public function test_an_affiliate_names_the_method_that_pays_them(): void {
+		$this->acting_as( $this->admin_id );
+
+		$chose   = $this->fake_affiliate( 10 );
+		$default = $this->factory()->affiliate->create();
+		$method  = fn( int $id ): string => $this->get_request( '/affiliates/' . $id )->get_data()['effective_payout_method'];
+
+		$this->assertSame( 'fake', $method( $chose ) );
+		$this->assertSame( 'manual', $method( $default ) );
+
+		flyaffiliate_update_option( 'method', 'fake' );
+
+		$this->assertSame( 'fake', $method( $default ), 'the default covers an affiliate who chose nothing' );
+
+		$this->fake->enabled = false;
+
+		$this->assertSame( 'manual', $method( $chose ), 'a method switched off pays nobody' );
+		$this->assertSame( 'manual', $method( $default ) );
 	}
 
 	/**

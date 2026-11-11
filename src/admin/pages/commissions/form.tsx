@@ -20,7 +20,13 @@ import {
 	useParams,
 	useSearchParams,
 } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, ReceiptText, Wallet } from 'lucide-react';
+import {
+	ArrowLeft,
+	ExternalLink,
+	ReceiptText,
+	TriangleAlert,
+	Wallet,
+} from 'lucide-react';
 import {
 	Button,
 	Card,
@@ -48,6 +54,7 @@ import {
 	toast,
 } from '@wedevs/plugin-ui';
 import AffiliatePicker from '@/components/AffiliatePicker';
+import { paidBySentence } from '@/components/CommissionStatus';
 import Required from '@/components/Required';
 import EmptyState from '@/components/EmptyState';
 import Hint from '@/components/Hint';
@@ -59,7 +66,7 @@ import { errorMessage, fetchOne, send } from '@/lib/api';
 import { formatDate, toYmd } from '@/lib/format';
 import { getGlobals } from '@/lib/globals';
 import { BRAND_OUTLINE } from '@/lib/ui';
-import type { Commission, Payout } from '@/lib/types';
+import type { Affiliate, Commission, Payout } from '@/lib/types';
 
 const FORM_ID = 'flyaffiliate-commission-form';
 
@@ -331,8 +338,14 @@ export default function CommissionFormPage() {
 	const navigate = useNavigate();
 	const location = useLocation();
 	const [ searchParams ] = useSearchParams();
-	const { currency, statuses, sources, availableSources, types } =
-		getGlobals();
+	const {
+		currency,
+		statuses,
+		sources,
+		availableSources,
+		types,
+		payoutMethods,
+	} = getGlobals();
 
 	const from =
 		( location.state as { from?: string } | null )?.from ?? '/commissions';
@@ -341,6 +354,8 @@ export default function CommissionFormPage() {
 	const [ commission, setCommission ] = useState< Commission | null >( null );
 	// The payment holding the commission, when one does: paid or still waiting.
 	const [ payment, setPayment ] = useState< Payout | null >( null );
+	// The affiliate, for the payout method that pays them.
+	const [ affiliate, setAffiliate ] = useState< Affiliate | null >( null );
 	const [ loading, setLoading ] = useState( editing );
 	const [ saving, setSaving ] = useState( false );
 	const [ values, setValues ] = useState< Values >( {
@@ -408,8 +423,37 @@ export default function CommissionFormPage() {
 			.finally( () => setLoading( false ) );
 	}, [ editing, commissionId ] );
 
+	useEffect( () => {
+		if ( ! values.affiliate_id ) {
+			return;
+		}
+
+		let cancelled = false;
+
+		fetchOne< Affiliate >( `/affiliates/${ values.affiliate_id }` )
+			.then( ( item ) => ! cancelled && setAffiliate( item ) )
+			.catch( () => ! cancelled && setAffiliate( null ) );
+
+		return () => {
+			cancelled = true;
+		};
+	}, [ values.affiliate_id ] );
+
 	// A payment holding the commission follows the edit; it does not block it.
 	const inPayment = editing && Boolean( commission?.payout_id );
+	// The method that pays the chosen affiliate, once they are loaded.
+	const payoutMethod =
+		affiliate?.id === values.affiliate_id
+			? payoutMethods.find(
+					( method ) =>
+						method.id === affiliate.effective_payout_method
+			  )
+			: undefined;
+	// Marking paid by hand sends nothing, which matters when a method would have.
+	const paidByHand =
+		values.status === 'paid' &&
+		commission?.status !== 'paid' &&
+		Boolean( payoutMethod?.automatic );
 	// The reference of a commission that came from checkout is its order item's.
 	const referenceFixed = editing && commission?.order_item_id !== null;
 	// The saved reference points at an order that exists.
@@ -821,7 +865,13 @@ export default function CommissionFormPage() {
 						<Row
 							id="flyaffiliate-commission-status"
 							label={ __( 'Status', 'flyaffiliate' ) }
-							hint={ statusHint[ values.status ] }
+							hint={
+								// A commission a payout paid says so, while it stays paid.
+								( commission?.paid_by &&
+									values.status === 'paid' &&
+									paidBySentence( commission ) ) ||
+								statusHint[ values.status ]
+							}
 							required
 						>
 							<Select
@@ -854,6 +904,52 @@ export default function CommissionFormPage() {
 									) }
 								</SelectContent>
 							</Select>
+							{ paidByHand && affiliate && payoutMethod && (
+								<div
+									role="status"
+									className="flex items-start gap-2 text-sm"
+									data-testid="flyaffiliate-commission-paid-by-hand"
+								>
+									<TriangleAlert
+										className="mt-0.5 size-4 shrink-0 text-warning"
+										aria-hidden="true"
+									/>
+									<div className="min-w-0">
+										<p className="font-medium text-foreground">
+											{ sprintf(
+												/* translators: 1: affiliate name, 2: payout method, e.g. "PayPal" */
+												__(
+													'%1$s is paid through %2$s',
+													'flyaffiliate'
+												),
+												affiliate.name,
+												payoutMethod.label
+											) }
+										</p>
+										<p className="mt-1 text-muted-foreground">
+											{ sprintf(
+												/* translators: %1$s: payout method, e.g. "PayPal" */
+												__(
+													'Saving this as Paid records money you already paid outside FlyAffiliate. Nothing is sent through %1$s. To pay it through %1$s, save it as Unpaid, then create a payout.',
+													'flyaffiliate'
+												),
+												payoutMethod.label
+											) }{ ' ' }
+											<Link
+												to="/payouts"
+												target="_blank"
+												rel="noreferrer"
+												className="font-medium text-primary hover:underline"
+											>
+												{ __(
+													'Open Payouts',
+													'flyaffiliate'
+												) }
+											</Link>
+										</p>
+									</div>
+								</div>
+							) }
 						</Row>
 					</Section>
 
