@@ -24,6 +24,7 @@ import {
 	ArrowLeft,
 	ExternalLink,
 	ReceiptText,
+	Send,
 	TriangleAlert,
 	Wallet,
 } from 'lucide-react';
@@ -904,53 +905,110 @@ export default function CommissionFormPage() {
 									) }
 								</SelectContent>
 							</Select>
-							{ paidByHand && affiliate && payoutMethod && (
-								<div
-									role="status"
-									className="flex items-start gap-2 text-sm"
-									data-testid="flyaffiliate-commission-paid-by-hand"
-								>
-									<TriangleAlert
-										className="mt-0.5 size-4 shrink-0 text-warning"
-										aria-hidden="true"
-									/>
-									<div className="min-w-0">
-										<p className="font-medium text-foreground">
-											{ sprintf(
+						</Row>
+
+						{ paidByHand && affiliate && payoutMethod && (
+							<div
+								role="status"
+								className="flex flex-col gap-4 px-5 py-4"
+								data-testid="flyaffiliate-commission-paid-by-hand"
+							>
+								<div className="flex items-center gap-1.5">
+									<h3 className="text-sm font-semibold text-foreground">
+										{ __(
+											'Payout method',
+											'flyaffiliate'
+										) }
+									</h3>
+									<Tooltip>
+										<TooltipTrigger
+											render={
+												<Link
+													to="/payouts"
+													target="_blank"
+													rel="noreferrer"
+													className="inline-flex text-primary hover:text-primary/80"
+													aria-label={ __(
+														'Open Payouts',
+														'flyaffiliate'
+													) }
+													data-testid="flyaffiliate-commission-open-payouts"
+												/>
+											}
+										>
+											<ExternalLink
+												className="size-3.5"
+												aria-hidden="true"
+											/>
+										</TooltipTrigger>
+										<TooltipContent>
+											{ __(
+												'Open Payouts',
+												'flyaffiliate'
+											) }
+										</TooltipContent>
+									</Tooltip>
+								</div>
+								<div className="flex flex-col gap-4">
+									{ [
+										{
+											icon: Wallet,
+											text: sprintf(
 												/* translators: 1: affiliate name, 2: payout method, e.g. "PayPal" */
 												__(
-													'%1$s is paid through %2$s',
+													'%1$s is paid through %2$s.',
 													'flyaffiliate'
 												),
 												affiliate.name,
 												payoutMethod.label
-											) }
-										</p>
-										<p className="mt-1 text-muted-foreground">
-											{ sprintf(
-												/* translators: %1$s: payout method, e.g. "PayPal" */
+											),
+										},
+										{
+											icon: TriangleAlert,
+											tone: 'text-warning',
+											text: sprintf(
+												/* translators: %s: payout method, e.g. "PayPal" */
 												__(
-													'Saving this as Paid records money you already paid outside FlyAffiliate. Nothing is sent through %1$s. To pay it through %1$s, save it as Unpaid, then create a payout.',
+													'Saving as Paid sends nothing through %s. It records money you already sent outside FlyAffiliate.',
 													'flyaffiliate'
 												),
 												payoutMethod.label
-											) }{ ' ' }
-											<Link
-												to="/payouts"
-												target="_blank"
-												rel="noreferrer"
-												className="font-medium text-primary hover:underline"
-											>
-												{ __(
-													'Open Payouts',
+											),
+										},
+										{
+											icon: Send,
+											text: sprintf(
+												/* translators: %s: payout method, e.g. "PayPal" */
+												__(
+													'To pay through %s, save it as Unpaid and create a payout.',
 													'flyaffiliate'
-												) }
-											</Link>
-										</p>
-									</div>
+												),
+												payoutMethod.label
+											),
+										},
+									].map( ( { icon: Icon, tone, text } ) => (
+										<div
+											key={ text }
+											className="flex gap-2.5"
+										>
+											<span className="mt-0.5 min-w-4">
+												<Icon
+													className={ cn(
+														'size-4',
+														tone ??
+															'text-muted-foreground'
+													) }
+													aria-hidden="true"
+												/>
+											</span>
+											<span className="text-sm text-muted-foreground">
+												{ text }
+											</span>
+										</div>
+									) ) }
 								</div>
-							) }
-						</Row>
+							</div>
+						) }
 					</Section>
 
 					<Section title={ __( 'Origin', 'flyaffiliate' ) }>
