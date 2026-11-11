@@ -287,6 +287,17 @@ keys of its own (passed through). It shows them in a payments-table column
 FlyAffiliate never interprets them: a method's own concepts stay in the
 plugin that adds the method.
 
+What paid a commission: its response carries `paid_by`, the method of its
+payment once that payment is itself paid, and null for a commission recorded
+as paid by hand (outside a payment, or inside one still unpaid). The apps show
+it through `CommissionStatus`, behind an info icon beside the pill, never as
+a second line. An affiliate's response carries `effective_payout_method`
+(`resolve_for()`); the commission form reads it to warn before a commission is
+marked paid by hand for an affiliate an automatic method pays. A state's
+`reference` is the transaction once the transfer is paid; `/me/payouts` passes
+it on for a paid transfer only, and the screens show a payment's own
+`reference` first.
+
 ## The affiliate role
 
 `Affiliate\Role` keeps the `flyaffiliate_affiliate` role (label "Affiliate",
