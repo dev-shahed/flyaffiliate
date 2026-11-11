@@ -24,21 +24,36 @@ add_filter(
 			return $preempt;
 		}
 
-		$mode   = wp_parse_args( (array) get_option( 'pw_paypal_mock', [] ), [ 'token' => 'ok', 'send' => 'ok', 'item_status' => 'SUCCESS', 'verify' => 'FAILURE' ] );
+		$mode   = wp_parse_args(
+			(array) get_option( 'pw_paypal_mock', [] ), [
+				'token' => 'ok',
+				'send' => 'ok',
+				'item_status' => 'SUCCESS',
+				'verify' => 'FAILURE',
+			]
+		);
 		$method = strtoupper( (string) ( $args['method'] ?? 'GET' ) );
 		$path   = (string) wp_parse_url( $url, PHP_URL_PATH );
 		$body   = $args['body'] ?? '';
 		$json   = is_string( $body ) ? json_decode( $body, true ) : null;
 
 		$log   = (array) get_option( 'pw_paypal_log', [] );
-		$log[] = [ 'method' => $method, 'path' => $path, 'body' => is_array( $json ) ? $json : $body, 'headers' => array_diff_key( (array) ( $args['headers'] ?? [] ), [ 'Authorization' => 1 ] ) ];
+		$log[] = [
+			'method' => $method,
+			'path' => $path,
+			'body' => is_array( $json ) ? $json : $body,
+			'headers' => array_diff_key( (array) ( $args['headers'] ?? [] ), [ 'Authorization' => 1 ] ),
+		];
 		update_option( 'pw_paypal_log', $log, false );
 
 		$reply = static function ( int $code, $data ) {
 			return [
 				'headers'  => [ 'paypal-debug-id' => 'pw-debug' ],
 				'body'     => null === $data ? '' : wp_json_encode( $data ),
-				'response' => [ 'code' => $code, 'message' => '' ],
+				'response' => [
+					'code' => $code,
+					'message' => '',
+				],
 				'cookies'  => [],
 				'filename' => null,
 			];
@@ -56,7 +71,10 @@ add_filter(
 					'transaction_status' => $mode['item_status'],
 					'transaction_id'     => 'SUCCESS' === $mode['item_status'] ? 'PWTXN-' . $item['sender_item_id'] : '',
 					'payout_item'        => $item,
-					'errors'             => $failed ? [ 'name' => 'RECEIVER_UNREGISTERED', 'message' => 'Receiver is unregistered.' ] : [],
+					'errors'             => $failed ? [
+						'name' => 'RECEIVER_UNREGISTERED',
+						'message' => 'Receiver is unregistered.',
+					] : [],
 				];
 			}
 			return $items;
@@ -64,12 +82,35 @@ add_filter(
 
 		if ( '/v1/oauth2/token' === $path ) {
 			return 'ok' === $mode['token']
-				? $reply( 200, [ 'access_token' => 'pw-token', 'scope' => 'https://uri.paypal.com/services/payments/payouts', 'app_id' => 'APP-PW', 'expires_in' => 32400 ] )
-				: $reply( 401, [ 'error' => 'invalid_client', 'error_description' => 'Client Authentication failed' ] );
+				? $reply(
+					200, [
+						'access_token' => 'pw-token',
+						'scope' => 'https://uri.paypal.com/services/payments/payouts',
+						'app_id' => 'APP-PW',
+						'expires_in' => 32400,
+					]
+				)
+				: $reply(
+					401, [
+						'error' => 'invalid_client',
+						'error_description' => 'Client Authentication failed',
+					]
+				);
 		}
 
 		if ( 0 === strpos( $path, '/v1/identity/oauth2/userinfo' ) ) {
-			return $reply( 200, [ 'payer_id' => 'PWPAYER1', 'name' => 'PW Sandbox Business', 'emails' => [ [ 'value' => 'pw-business@example.test', 'primary' => true ] ] ] );
+			return $reply(
+				200, [
+					'payer_id' => 'PWPAYER1',
+					'name' => 'PW Sandbox Business',
+					'emails' => [
+						[
+							'value' => 'pw-business@example.test',
+							'primary' => true,
+						],
+					],
+				]
+			);
 		}
 
 		if ( 0 === strpos( $path, '/v1/notifications/webhooks' ) ) {
@@ -85,21 +126,48 @@ add_filter(
 				return new WP_Error( 'http_request_failed', 'cURL error 28: Operation timed out' );
 			}
 			if ( 'reject' === $mode['send'] ) {
-				return $reply( 422, [ 'name' => 'INSUFFICIENT_FUNDS', 'message' => 'Sender does not have sufficient funds.', 'debug_id' => 'pw-debug' ] );
+				return $reply(
+					422, [
+						'name' => 'INSUFFICIENT_FUNDS',
+						'message' => 'Sender does not have sufficient funds.',
+						'debug_id' => 'pw-debug',
+					]
+				);
 			}
 			$batches = (array) get_option( 'pw_paypal_batches', [] );
 			$id      = 'PWBATCH-' . substr( md5( (string) ( $json['sender_batch_header']['sender_batch_id'] ?? '' ) ), 0, 10 );
 			$batches[ $id ] = [ 'items' => (array) ( $json['items'] ?? [] ) ];
 			update_option( 'pw_paypal_batches', $batches, false );
-			return $reply( 201, [ 'batch_header' => [ 'payout_batch_id' => $id, 'batch_status' => 'PENDING' ] ] );
+			return $reply(
+				201, [
+					'batch_header' => [
+						'payout_batch_id' => $id,
+						'batch_status' => 'PENDING',
+					],
+				]
+			);
 		}
 
 		if ( preg_match( '#^/v1/payments/payouts/([^/?]+)#', $path, $m ) ) {
 			if ( 'FLYAFFILIATEPROBE' === $m[1] ) {
-				return $reply( 404, [ 'name' => 'RESOURCE_NOT_FOUND', 'message' => 'Not found.' ] );
+				return $reply(
+					404, [
+						'name' => 'RESOURCE_NOT_FOUND',
+						'message' => 'Not found.',
+					]
+				);
 			}
 			$items = $items_of( $m[1] );
-			return $reply( 200, [ 'batch_header' => [ 'payout_batch_id' => $m[1], 'batch_status' => 'SUCCESS' === $mode['item_status'] ? 'SUCCESS' : 'PROCESSING' ], 'items' => $items, 'total_pages' => 1 ] );
+			return $reply(
+				200, [
+					'batch_header' => [
+						'payout_batch_id' => $m[1],
+						'batch_status' => 'SUCCESS' === $mode['item_status'] ? 'SUCCESS' : 'PROCESSING',
+					],
+					'items' => $items,
+					'total_pages' => 1,
+				]
+			);
 		}
 
 		if ( preg_match( '#^/v1/payments/payouts-item/PWITEM-(.+)$#', $path, $m ) ) {
@@ -110,10 +178,20 @@ add_filter(
 					}
 				}
 			}
-			return $reply( 404, [ 'name' => 'RESOURCE_NOT_FOUND', 'message' => 'Not found.' ] );
+			return $reply(
+				404, [
+					'name' => 'RESOURCE_NOT_FOUND',
+					'message' => 'Not found.',
+				]
+			);
 		}
 
-		return $reply( 404, [ 'name' => 'RESOURCE_NOT_FOUND', 'message' => 'The PW stand-in does not answer ' . $method . ' ' . $path ] );
+		return $reply(
+			404, [
+				'name' => 'RESOURCE_NOT_FOUND',
+				'message' => 'The PW stand-in does not answer ' . $method . ' ' . $path,
+			]
+		);
 	},
 	10,
 	3

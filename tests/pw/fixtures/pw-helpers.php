@@ -11,9 +11,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Every PHP notice, warning, deprecation and fatal, whatever WP_DEBUG_LOG says.
-ini_set( 'log_errors', '1' ); // phpcs:ignore WordPress.PHP.IniSet.Risky
-ini_set( 'error_log', WP_CONTENT_DIR . '/pw-php.log' ); // phpcs:ignore WordPress.PHP.IniSet.log_errors_Disallowed
-error_reporting( E_ALL ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.prevent_path_disclosure_error_reporting
+ini_set( 'log_errors', '1' ); // phpcs:ignore WordPress.PHP.IniSet.log_errors_Disallowed -- test fixture: log every error to pw-php.log.
+ini_set( 'error_log', WP_CONTENT_DIR . '/pw-php.log' ); // phpcs:ignore WordPress.PHP.IniSet.Risky -- test fixture.
+error_reporting( E_ALL ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.runtime_configuration_error_reporting -- test fixture.
 
 // Mail: recorded, never sent.
 add_filter(
