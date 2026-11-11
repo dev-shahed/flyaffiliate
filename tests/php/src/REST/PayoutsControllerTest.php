@@ -260,6 +260,44 @@ class PayoutsControllerTest extends FlyAffiliateTestCase {
 	}
 
 	/**
+	 * Once the transfer is paid the affiliate sees its reference too, and still no message.
+	 *
+	 * @return void
+	 */
+	public function test_the_affiliate_sees_the_reference_of_a_paid_transfer(): void {
+		$affiliate = $this->fake_affiliate( 30 );
+
+		$this->acting_as( $this->admin_id );
+
+		$created = $this->post_request( '/payouts', [ 'minimum_amount' => 0 ] )->get_data();
+		$id      = $created['payouts'][0]['id'];
+
+		$this->fake->states[ $id ] = [
+			'status'    => PayoutMethod::STATE_PROCESSING,
+			'message'   => 'Sent from the store account',
+			'reference' => 'ITEM1',
+		];
+
+		$this->acting_as( (int) Affiliate::find( $affiliate )->get( 'user_id' ) );
+
+		$this->assertSame( [ 'status' => 'processing' ], $this->get_request( '/me/payouts' )->get_data()[0]['transfer'] );
+
+		$this->fake->states[ $id ] = [
+			'status'    => PayoutMethod::STATE_PAID,
+			'message'   => 'Paid from the store account',
+			'reference' => 'TXN1',
+		];
+
+		$this->assertSame(
+			[
+				'status'    => 'paid',
+				'reference' => 'TXN1',
+			],
+			$this->get_request( '/me/payouts' )->get_data()[0]['transfer']
+		);
+	}
+
+	/**
 	 * A paid commission names the method of the payment that paid it. One
 	 * recorded as paid by hand, outside a payment or inside one still unpaid,
 	 * names none.

@@ -11,6 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+use FlyAffiliate\Contracts\PayoutMethod;
 use FlyAffiliate\Integrations\WooCommerce\OrderAttribution;
 use FlyAffiliate\Models\Commission;
 use FlyAffiliate\REST\AffiliateBaseController;
@@ -421,8 +422,15 @@ class MeController extends AffiliateBaseController {
 
 			// The affiliate sees where the money is, not the admin's view of why:
 			// a failure message can name the store's account, and the actions are not theirs.
+			// A paid transfer keeps its reference: the transaction that paid them.
 			if ( is_array( $data['transfer'] ?? null ) ) {
-				$data['transfer'] = [ 'status' => $data['transfer']['status'] ];
+				$transfer = [ 'status' => $data['transfer']['status'] ];
+
+				if ( PayoutMethod::STATE_PAID === $transfer['status'] ) {
+					$transfer['reference'] = (string) ( $data['transfer']['reference'] ?? '' );
+				}
+
+				$data['transfer'] = $transfer;
 			}
 
 			unset( $data['locked'], $data['can_retry'] );
