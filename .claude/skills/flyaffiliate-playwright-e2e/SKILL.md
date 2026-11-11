@@ -41,7 +41,8 @@ Spec map: `attribution` (WC-*), `order-sync` (SYN-*), `payout-rules`
 `affiliate-dashboard` (DSH-*, SEC-04/05), `security` (SEC-*), `standalone`
 (STD-*, WooCommerce deactivated for the file), `admin-shell` (SHL-05/07,
 SEC-03, SET-*), `admin-records` (AFF-*, COM-*), `money-journey` (the whole
-loop through a real block checkout), `dokan` (DOK-*), `pro-core` (PRO-*) and
+loop through a real block checkout), `paid-provenance` (COM-18..21, DSH-16:
+what paid a commission), `dokan` (DOK-*), `pro-core` (PRO-*) and
 `pro-paypal` (PP-*) (Pro paired env only);
 plus the screen specs `affiliates`,
 `commissions`, `dashboard`, `navigation`, `payouts`, `settings`, `setup`,

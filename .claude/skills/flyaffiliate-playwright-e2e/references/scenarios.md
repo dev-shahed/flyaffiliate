@@ -98,6 +98,10 @@ inactive | suspended`. Payment: `unpaid | paid`. Payout (computed):
 | COM-15 | Bulk select → toolbar → bulk delete / bulk status | ✓ commissions |
 | COM-16 | Filters/search/pagination/sort | Results and `X-WP-Total` consistent |
 | COM-17 | Note column info tip | Visible when note set |
+| COM-18 | What paid a commission: `paid_by` (Pro issue #23, PR #23) | Hand-paid → `payout_id` null, `paid_by` null; payout-paid → `{ method, method_label }`, unchanged when the payment is marked paid again; in an unpaid payment → not paid by it; `/me/commissions` says the same @money ✓ paid-provenance |
+| COM-19 | Hand-paid commission in the list | Info icon beside Paid: "Recorded as paid outside a payout."; payout-paid shows the pill alone ✓ paid-provenance |
+| COM-20 | `effective_payout_method` on the affiliate | Default method when no choice; own choice wins; Manual once the chosen method is unregistered ✓ paid-provenance |
+| COM-21 | Form: Paid for an affiliate an automatic method pays | "Payout method" notice (who is paid through what, saving sends nothing, pay via a payout) + Open Payouts link (new tab); gone on Unpaid, for a Manual or non-automatic method, and on a commission already paid; a notice only — saving as Paid still records a hand-paid commission, no payment ✓ paid-provenance |
 
 ## 5. Payouts & payments — ADR-0006, ADR-0012, ADR-0016, rule 7
 
@@ -182,6 +186,7 @@ it when writing those tests.
 | DSH-13 | Hold note when supplied (`program.holdNote`) |
 | DSH-14 | Transfer failure message never shown to affiliate (ADR-0016) |
 | DSH-15 | Theme fit: no horizontal scroll at 375px; popups inside viewport ✓ affiliate-dashboard (test.fail: BUG-001/003) |
+| DSH-16 | Hand-paid vs payout-paid on the Commissions tab | Info icon on the hand-paid row only; Details of a payout-paid one: "Paid in a Manual payout." ✓ paid-provenance |
 
 ## 9. Permissions & security — ADR-0008, ADR-0003
 
