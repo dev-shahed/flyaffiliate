@@ -1,0 +1,186 @@
+name: E2E (Playwright)
+
+# The Playwright suite (tests/pw) against wp-env: WordPress + WooCommerce on
+# :8888, the tests site on :8889 (release-zip spec). One worker, one database
+# (the suite is serial by design). FlyAffiliate Pro / Dokan specs skip
+# themselves here; they need Pro's paired env.
+
+on:
+  push:
+    branches:
+      - develop
+      - master
+  pull_request:
+    paths:
+      - '**.php'
+      - 'src/**'
+      - 'assets/**'
+      - 'templates/**'
+      - 'tests/pw/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'composer.json'
+      - 'composer.lock'
+      - '.wp-env.json'
+      - 'webpack.config.js'
+      - '.github/workflows/e2e.yml'
+  workflow_dispatch:
+    inputs:
+      spec:
+        description: 'Spec file(s) under tests/pw/specs, e.g. specs/payouts.spec.ts (empty = all)'
+        required: false
+        default: ''
+      grep:
+        description: 'Only tests whose title matches, e.g. @money or @smoke (empty = all)'
+        required: false
+        default: ''
+      wp:
+        description: 'WordPress version for wp-env core (latest, or e.g. 6.6)'
+        required: false
+        default: 'latest'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: WP ${{ matrix.wp }} · PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        # A pull request runs the latest WordPress; develop/master also run the
+        # minimum (6.6, CLAUDE.md), the release gate's matrix. A manual run
+        # takes the version it is given.
+        include: ${{ fromJSON( github.event_name == 'pull_request' && '[{"wp":"latest","php":"8.1"}]' || github.event_name == 'workflow_dispatch' && format('[{{"wp":"{0}","php":"8.1"}}]', inputs.wp) || '[{"wp":"latest","php":"8.1"},{"wp":"6.6","php":"8.1"}]' ) }}
+
+    env:
+      CI: '1'
+      # Optional: specs/paypal-sandbox.spec.ts runs only with these (and Pro),
+      # and skips otherwise.
+      PAYPAL_SANDBOX_CLIENT_ID: ${{ secrets.PAYPAL_SANDBOX_CLIENT_ID }}
+      PAYPAL_SANDBOX_SECRET: ${{ secrets.PAYPAL_SANDBOX_SECRET }}
+      PAYPAL_SANDBOX_RECEIVER: ${{ secrets.PAYPAL_SANDBOX_RECEIVER }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          # The host PHP builds the release zip (bin/build-zip.php) for the
+          # release-zip spec; the site's PHP is wp-env's (phpVersion below).
+          php-version: ${{ matrix.php }}
+          coverage: none
+          tools: composer:v2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install PHP dependencies
+        # The plugin needs vendor/autoload.php to load at all.
+        run: composer install --prefer-dist --no-progress
+
+      - name: Install Node dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build assets
+        run: npm run build
+
+      - name: Playwright version
+        id: pw
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+
+      - name: Install Playwright Chromium
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright system dependencies
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      # wp-env reads .wp-env.override.json on top of .wp-env.json.
+      - name: Configure the test environment
+        env:
+          WP_VERSION: ${{ matrix.wp }}
+          PHP_VERSION: ${{ matrix.php }}
+        run: |
+          if [ "$WP_VERSION" = "latest" ]; then
+            CORE='https://wordpress.org/latest.zip'
+          elif [[ "$WP_VERSION" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+            CORE="WordPress/WordPress#${WP_VERSION}"
+          else
+            echo "::error::Unsupported WordPress version: $WP_VERSION"
+            exit 1
+          fi
+          cat > .wp-env.override.json <<JSON
+          { "core": "${CORE}", "phpVersion": "${PHP_VERSION}" }
+          JSON
+          cat .wp-env.override.json
+
+      - name: Start wp-env
+        # Downloads (WordPress, WooCommerce, images) fail now and then: retry once.
+        run: npx wp-env start --update || (sleep 10 && npx wp-env start --update)
+
+      - name: Site info
+        run: |
+          npx wp-env run cli wp core version
+          npx wp-env run cli wp plugin list --fields=name,status,version
+          curl -sS -o /dev/null -w 'dev site: %{http_code}\n' http://localhost:8888/
+          curl -sS -o /dev/null -w 'tests site: %{http_code}\n' http://localhost:8889/
+
+      - name: Run the e2e suite
+        env:
+          SPEC: ${{ inputs.spec }}
+          GREP: ${{ inputs.grep }}
+        run: |
+          ARGS=()
+          if [ -n "$SPEC" ]; then read -r -a FILES <<< "$SPEC"; ARGS+=("${FILES[@]}"); fi
+          if [ -n "$GREP" ]; then ARGS+=(-g "$GREP"); fi
+          npm run test:e2e -- "${ARGS[@]}"
+
+      - name: Collect PHP and WordPress logs
+        if: always()
+        run: |
+          mkdir -p tests/pw/test-results/logs
+          npx wp-env run cli bash -c 'cat wp-content/pw-php.log 2>/dev/null' > tests/pw/test-results/logs/pw-php.log || true
+          npx wp-env run cli bash -c 'cat wp-content/debug.log 2>/dev/null' > tests/pw/test-results/logs/debug.log || true
+          npx wp-env run tests-cli bash -c 'cat wp-content/debug.log 2>/dev/null' > tests/pw/test-results/logs/tests-debug.log || true
+
+      - name: Upload the HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report-wp${{ matrix.wp }}-php${{ matrix.php }}
+          path: tests/pw/report
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Upload traces, screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-results-wp${{ matrix.wp }}-php${{ matrix.php }}
+          path: tests/pw/test-results
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Stop wp-env
+        if: always()
+        run: npx wp-env stop

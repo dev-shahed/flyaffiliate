@@ -30,7 +30,11 @@ export default defineConfig( {
 	retries: CI ? 2 : 0,
 	workers: 1,
 	reporter: CI
-		? [ [ 'github' ], [ 'list' ] ]
+		? [
+				[ 'github' ],
+				[ 'list' ],
+				[ 'html', { open: 'never', outputFolder: './report' } ],
+		  ]
 		: [
 				[ 'list' ],
 				[ 'html', { open: 'never', outputFolder: './report' } ],
