@@ -7,7 +7,15 @@
  * specs under `specs/`.
  */
 import { defineConfig, devices } from '@playwright/test';
+import { existsSync } from 'fs';
 import { join } from 'path';
+
+// Local secrets (git-ignored), e.g. the PayPal sandbox keys for
+// specs/paypal-sandbox.spec.ts. Values already in the shell win.
+const envFile = join( __dirname, '.env' );
+if ( existsSync( envFile ) ) {
+	process.loadEnvFile( envFile );
+}
 
 const { CI, BASE_URL, HEADLESS } = process.env;
 
