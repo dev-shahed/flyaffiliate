@@ -261,12 +261,10 @@ test.describe( 'Reserved WordPress query variables', () => {
 	test( 'with the referral variable set to "p", an ordinary post link credits no one', async ( {
 		browser,
 	} ) => {
-		// BUG-004 residual: PR #22 refuses `p` when it is saved, but a site that
-		// stored `p` before the fix keeps it after updating (written here
-		// straight into the option), and every /?p=<post> link still tracks the
-		// affiliate whose id equals the post id. Remove test.fail() once the
-		// tracker or an upgrade routine ignores a stored reserved name.
-		test.fail();
+		// BUG-004 residual: a site that stored `p` before saves refused it keeps
+		// it after updating (written here straight into the option). The
+		// tracker ignores a stored reserved name and falls back to `affiliate`
+		// (PR #22, 2ff7a8f), so /?p=<post> credits no one. Was test.fail().
 		const postId = php< number >(
 			`return (int) get_posts( [ 'post_type' => 'post', 'numberposts' => 1, 'fields' => 'ids' ] )[0];`
 		);
