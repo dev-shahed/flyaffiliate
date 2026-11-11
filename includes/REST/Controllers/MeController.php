@@ -560,8 +560,13 @@ class MeController extends AffiliateBaseController {
 	 */
 	protected function list_response( $controller, $manager, array $args, WP_REST_Request $request ): WP_REST_Response {
 		$items = [];
+		$rows  = $manager->query( $args );
 
-		foreach ( $manager->query( $args ) as $row ) {
+		if ( $controller instanceof CommissionsController ) {
+			$controller->prime_payments( $rows );
+		}
+
+		foreach ( $rows as $row ) {
 			$items[] = $this->prepare_response_for_collection( $controller->prepare_item_for_response( $row, $request ) );
 		}
 

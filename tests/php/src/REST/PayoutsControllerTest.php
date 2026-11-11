@@ -260,6 +260,57 @@ class PayoutsControllerTest extends FlyAffiliateTestCase {
 	}
 
 	/**
+	 * A paid commission names the method of the payment that paid it. One
+	 * recorded as paid by hand, outside a payment or inside one still unpaid,
+	 * names none.
+	 *
+	 * @return void
+	 */
+	public function test_a_paid_commission_says_what_paid_it(): void {
+		$affiliate = $this->fake_affiliate( 30 );
+		$user      = (int) Affiliate::find( $affiliate )->get( 'user_id' );
+		$outside   = $this->factory()->commission->create( [ 'affiliate_id' => $affiliate, 'amount' => 5, 'status' => Commission::STATUS_PAID ] );
+		$inside    = $this->factory()->commission->create( [ 'affiliate_id' => $affiliate, 'amount' => 7, 'status' => Commission::STATUS_UNPAID ] );
+
+		$this->acting_as( $this->admin_id );
+
+		$payment = $this->post_request( '/payouts', [ 'minimum_amount' => 0 ] )->get_data()['payouts'][0];
+		$sent    = current( array_diff( $payment['commissions'], [ $inside ] ) );
+
+		$this->assertContains( $inside, $payment['commissions'] );
+		$this->assertNull( $this->get_request( '/commissions/' . $sent )->get_data()['paid_by'], 'not paid yet' );
+		$this->assertNull( $this->get_request( '/commissions/' . $outside )->get_data()['paid_by'], 'paid by hand, in no payment' );
+
+		// Marked paid by hand while its payment waits: the payment did not pay it.
+		$this->assertSame( 200, $this->put_request( '/commissions/' . $inside, [ 'status' => 'paid' ] )->get_status() );
+		$this->assertNull( $this->get_request( '/commissions/' . $inside )->get_data()['paid_by'] );
+
+		flyaffiliate()->payout->mark_paid( $payment['id'], true );
+
+		$paid_by = [
+			'method'       => 'fake',
+			'method_label' => 'Fake',
+		];
+
+		$this->assertSame( $paid_by, $this->get_request( '/commissions/' . $sent )->get_data()['paid_by'] );
+
+		$rows = array_column( $this->get_request( '/commissions', [ 'affiliate_id' => $affiliate ] )->get_data(), 'paid_by', 'id' );
+
+		$this->assertSame( $paid_by, $rows[ $sent ] );
+		$this->assertNull( $rows[ $outside ] );
+
+		// The affiliate's dashboard reads the same.
+		$this->acting_as( $user );
+
+		$rows = array_column( $this->get_request( '/me/commissions' )->get_data(), 'paid_by', 'id' );
+
+		$this->assertSame( $paid_by, $rows[ $sent ] );
+		$this->assertNull( $rows[ $outside ] );
+		$this->assertSame( $paid_by, $this->get_request( '/me/commissions/' . $sent )->get_data()['paid_by'] );
+		$this->assertNull( $this->get_request( '/me/commissions/' . $outside )->get_data()['paid_by'] );
+	}
+
+	/**
 	 * The affiliate chooses a method and gives its details; a method switched off or a bad detail is refused.
 	 *
 	 * @return void

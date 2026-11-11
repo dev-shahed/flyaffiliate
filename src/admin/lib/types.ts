@@ -65,6 +65,8 @@ export type Commission = {
 	type: string;
 	status: string;
 	payout_id: number | null;
+	/** The method of the payment that paid it; null when not paid, or recorded as paid outside a payout. */
+	paid_by?: { method: string; method_label: string } | null;
 	matures_at: string | null;
 	created_at: string | null;
 	updated_at: string | null;

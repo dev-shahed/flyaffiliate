@@ -14,7 +14,7 @@ import {
 } from '@wedevs/plugin-ui';
 import DateTime from '@/components/DateTime';
 import Money from '@/components/Money';
-import StatusBadge from '@/components/StatusBadge';
+import CommissionStatus from '@/components/CommissionStatus';
 import { errorMessage, fetchOne } from '@/lib/api';
 import type { CommissionDetail } from '../types';
 
@@ -171,9 +171,9 @@ export default function CommissionDetails( { commissionId, onClose }: Props ) {
 									) }
 								</Row>
 								<Row label={ __( 'Status', 'flyaffiliate' ) }>
-									<StatusBadge
-										status={ detail.status }
-										kind="commission"
+									<CommissionStatus
+										commission={ detail }
+										detailed
 									/>
 								</Row>
 								<Row label={ __( 'Date', 'flyaffiliate' ) }>
