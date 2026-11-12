@@ -120,6 +120,14 @@ function pwBank( on: boolean, automatic = false ): void {
 }
 
 /**
+ * A REST request's route, whatever the permalinks: with plain permalinks
+ * WordPress sends `?rest_route=%2Fflyaffiliate%2Fv1%2F…` (slashes encoded),
+ * with pretty ones `/wp-json/flyaffiliate/v1/…`. CI's fresh wp-env has plain.
+ * @param url
+ */
+const restPath = ( url: string ): string => decodeURIComponent( url );
+
+/**
  * The commission form, on a new commission, with an affiliate picked.
  * @param page
  * @param affiliateId
@@ -138,7 +146,9 @@ async function newCommissionFor(
 	// The form reads the affiliate's payout method after the pick: wait for it,
 	// so an absent notice means "not shown", not "not loaded yet".
 	const loaded = page.waitForResponse(
-		( r ) => r.url().includes( `/affiliates/${ affiliateId }` ) && r.ok()
+		( r ) =>
+			restPath( r.url() ).includes( `/affiliates/${ affiliateId }` ) &&
+			r.ok()
 	);
 	await page
 		.getByRole( 'option', {
@@ -160,13 +170,15 @@ async function setStatus( page: Page, name: string ): Promise< void > {
 }
 
 /**
- * A commission's row in a DataViews list, found by its ID link.
+ * A commission's row in a DataViews list, found by its edit link.
  * @param page
  * @param id
  */
 const rowOf = ( page: Page, id: number ) =>
+	// Its own edit link: other cells link "#<n>" too (the order reference),
+	// and on a fresh database those numbers meet commission IDs.
 	page.getByRole( 'row' ).filter( {
-		has: page.getByRole( 'link', { name: `#${ id }`, exact: true } ),
+		has: page.locator( `a[href$="/commissions/${ id }/edit"]` ),
 	} );
 
 test.describe( 'paid_by on the commission responses [COM-18] @money', () => {
@@ -349,7 +361,9 @@ test.describe( 'Paid by hand on the admin screens [COM-19][COM-21]', () => {
 		const id = await commission( aff.id, 'paid' );
 
 		const loaded = page.waitForResponse(
-			( r ) => r.url().includes( `/affiliates/${ aff.id }` ) && r.ok()
+			( r ) =>
+				restPath( r.url() ).includes( `/affiliates/${ aff.id }` ) &&
+				r.ok()
 		);
 		await new AdminPage( page ).goto(
 			`${ urls.app }#/commissions/${ id }/edit`
@@ -376,8 +390,9 @@ test.describe( 'Paid by hand on the admin screens [COM-19][COM-21]', () => {
 
 		const saved = page.waitForResponse(
 			( r ) =>
-				/flyaffiliate\/v1\/commissions(\?|$)/.test( r.url() ) &&
-				r.request().method() === 'POST'
+				/flyaffiliate\/v1\/commissions(\?|&|$)/.test(
+					restPath( r.url() )
+				) && r.request().method() === 'POST'
 		);
 		await page.getByRole( 'button', { name: 'Add commission' } ).click();
 		const res = await saved;
@@ -408,7 +423,10 @@ test.describe( 'Paid by hand on the affiliate dashboard [DSH-16]', () => {
 		const { context } = await loginAs( browser, aff );
 		const page = await context.newPage();
 		try {
-			await page.goto( `${ pageUrls().dashboard }?tab=commissions` );
+			// Plain permalinks give `/?page_id=N`: add the tab, don't append "?".
+			const url = new URL( pageUrls().dashboard );
+			url.searchParams.set( 'tab', 'commissions' );
+			await page.goto( url.toString() );
 			const hand = page.getByRole( 'row' ).filter( {
 				has: page.getByRole( 'button', { name: HAND_PAID } ),
 			} );

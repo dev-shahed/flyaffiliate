@@ -121,16 +121,31 @@ jobs:
           WP_VERSION: ${{ matrix.wp }}
           PHP_VERSION: ${{ matrix.php }}
         run: |
+          # The latest WooCommerce follows the latest WordPress (10.x needs 6.7+),
+          # so an older WordPress gets the last WooCommerce that supports it.
+          WC='https://downloads.wordpress.org/plugin/woocommerce.zip'
           if [ "$WP_VERSION" = "latest" ]; then
             CORE='https://wordpress.org/latest.zip'
           elif [[ "$WP_VERSION" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
             CORE="WordPress/WordPress#${WP_VERSION}"
+            case "$WP_VERSION" in
+              6.6|6.6.*) WC='https://downloads.wordpress.org/plugin/woocommerce.9.8.6.zip' ;;
+            esac
           else
             echo "::error::Unsupported WordPress version: $WP_VERSION"
             exit 1
           fi
           cat > .wp-env.override.json <<JSON
-          { "core": "${CORE}", "phpVersion": "${PHP_VERSION}" }
+          {
+            "core": "${CORE}",
+            "phpVersion": "${PHP_VERSION}",
+            "plugins": [ "${WC}", "." ],
+            "env": {
+              "tests": {
+                "plugins": [ "${WC}", "https://downloads.wordpress.org/plugin/plugin-check.zip" ]
+              }
+            }
+          }
           JSON
           cat .wp-env.override.json
 
