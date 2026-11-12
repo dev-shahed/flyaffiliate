@@ -6,7 +6,8 @@ name: E2E (Playwright)
 #
 # FlyAffiliate Pro (a private repo) is added on pushes to develop/master and on
 # manual runs when the FLYAFFILIATE_PRO_DEPLOY_KEY secret holds a read-only
-# deploy key for weDevsOfficial/flyaffiliate-pro; its specs (pro-core,
+# deploy key for weDevsOfficial/flyaffiliate-pro (or FLYAFFILIATE_PRO_TOKEN a
+# token that can read it, e.g. a fine-grained one on a fork); its specs (pro-core,
 # pro-paypal, and paypal-sandbox with the PAYPAL_SANDBOX_* secrets) then run.
 # Pull requests, forks and runs without the key leave Pro out and those specs
 # skip themselves. The Dokan spec always skips here: it needs Pro's paired env.
@@ -68,7 +69,7 @@ jobs:
     env:
       CI: '1'
       # '1' when FlyAffiliate Pro is checked out and activated (see the header).
-      WITH_PRO: ${{ github.event_name != 'pull_request' && secrets.FLYAFFILIATE_PRO_DEPLOY_KEY != '' && '1' || '' }}
+      WITH_PRO: ${{ github.event_name != 'pull_request' && ( secrets.FLYAFFILIATE_PRO_DEPLOY_KEY != '' || secrets.FLYAFFILIATE_PRO_TOKEN != '' ) && '1' || '' }}
       # Optional: specs/paypal-sandbox.spec.ts runs only with these (and Pro),
       # and skips otherwise.
       PAYPAL_SANDBOX_CLIENT_ID: ${{ secrets.PAYPAL_SANDBOX_CLIENT_ID }}
@@ -112,7 +113,10 @@ jobs:
         with:
           repository: weDevsOfficial/flyaffiliate-pro
           ref: ${{ vars.FLYAFFILIATE_PRO_REF || 'develop' }}
+          # A deploy key (needs admin on the Pro repo to add) or, e.g. on a
+          # personal fork, a token that can read the Pro repo.
           ssh-key: ${{ secrets.FLYAFFILIATE_PRO_DEPLOY_KEY }}
+          token: ${{ secrets.FLYAFFILIATE_PRO_TOKEN || github.token }}
           path: _flyaffiliate-pro
           persist-credentials: false
 
