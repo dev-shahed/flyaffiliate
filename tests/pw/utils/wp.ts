@@ -17,7 +17,10 @@ let container: string | null | undefined;
 /**
  * This checkout's wp-env cli container, for a direct `docker exec` (about a
  * third of `wp-env run`'s start-up time). wp-env names containers after the
- * hash its install path ends in, so a worktree finds its own.
+ * hash its install path ends in, so a worktree finds its own. The lookup goes
+ * by the compose working directory (that install path), not the container
+ * name, so a stack brought up under its own compose project name
+ * (`docker compose -p flyaffiliate`) is found too.
  *
  * `FLYAFFILIATE_WP_ENV_DIR` points at another wp-env checkout instead — the
  * Pro worktree whose paired environment runs the Dokan specs.
@@ -32,9 +35,22 @@ function cliContainer(): string | null {
 			cwd: process.env.FLYAFFILIATE_WP_ENV_DIR || ROOT,
 			encoding: 'utf8',
 		} ).trim();
-		const name = `${ path.split( /[\\/]/ ).pop() }-cli-1`;
-		execFileSync( 'docker', [ 'inspect', name ], { stdio: 'ignore' } );
-		container = name;
+		const name = execFileSync(
+			'docker',
+			[
+				'ps',
+				'--filter',
+				'label=com.docker.compose.service=cli',
+				'--filter',
+				`label=com.docker.compose.project.working_dir=${ path }`,
+				'--format',
+				'{{.Names}}',
+			],
+			{ encoding: 'utf8' }
+		)
+			.trim()
+			.split( '\n' )[ 0 ];
+		container = name || null;
 	} catch {
 		container = null;
 	}

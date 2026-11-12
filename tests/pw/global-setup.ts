@@ -3,21 +3,26 @@
  * spec, then seeds sample data so the lists have rows to work with.
  */
 import { chromium, type FullConfig } from '@playwright/test';
-import { execSync } from 'child_process';
 import { mkdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { ADMIN, logIn } from './utils/site';
-import { lit, php } from './utils/wp';
+import { lit, php, wp } from './utils/wp';
 
 async function globalSetup( config: FullConfig ): Promise< void > {
 	const baseURL = config.projects[ 0 ].use.baseURL ?? 'http://localhost:8888';
 
 	if ( process.env.FLYAFFILIATE_SKIP_SEED !== '1' ) {
-		// The seeder refuses to run outside a development environment; wp-env's
-		// CLI container does not set the type, so it is passed explicitly.
-		execSync(
-			'npx wp-env run cli -- bash -c "WP_ENVIRONMENT_TYPE=development wp flyaffiliate seed --affiliates=4 --commissions=20 --visits=30 --yes"',
-			{ stdio: 'inherit', cwd: join( __dirname, '..', '..' ) }
+		// The seeder refuses to run outside a development environment; wp()
+		// passes WP_ENVIRONMENT_TYPE=development to the CLI container.
+		process.stdout.write(
+			wp( [
+				'flyaffiliate',
+				'seed',
+				'--affiliates=4',
+				'--commissions=20',
+				'--visits=30',
+				'--yes',
+			] )
 		);
 	}
 
