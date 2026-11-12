@@ -890,16 +890,32 @@ test.describe( 'PayPal Payouts @pro @money', () => {
 		event: unknown,
 		headers: Record< string, string >
 	) {
-		const res = await fetch(
-			`${
-				process.env.BASE_URL ?? 'http://localhost:8888'
-			}/?rest_route=/flyaffiliate-pro/v1/paypal/webhook`,
-			{
-				method: 'POST',
-				headers: { 'content-type': 'application/json', ...headers },
-				body: JSON.stringify( event ),
+		const send = () =>
+			fetch(
+				`${
+					process.env.BASE_URL ?? 'http://localhost:8888'
+				}/?rest_route=/flyaffiliate-pro/v1/paypal/webhook`,
+				{
+					method: 'POST',
+					headers: { 'content-type': 'application/json', ...headers },
+					body: JSON.stringify( event ),
+				}
+			);
+		let res: Response;
+		try {
+			res = await send();
+		} catch ( error ) {
+			// A kept-alive socket Apache already closed ("other side closed"):
+			// the request never reached WordPress, so sending it again is safe
+			// (as in utils/api.ts).
+			if (
+				( error as { cause?: { code?: string } } ).cause?.code !==
+				'UND_ERR_SOCKET'
+			) {
+				throw error;
 			}
-		);
+			res = await send();
+		}
 		const text = await res.text();
 		let body: unknown = text;
 		try {

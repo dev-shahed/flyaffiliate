@@ -54,10 +54,20 @@ export class Api {
 			.join( '; ' );
 
 		// Core's own endpoint for a fresh REST nonce (wp_ajax_rest_nonce).
-		const res = await fetch(
-			`${ BASE_URL }/wp-admin/admin-ajax.php?action=rest-nonce`,
-			{ headers: { cookie } }
-		);
+		const nonce = () =>
+			fetch( `${ BASE_URL }/wp-admin/admin-ajax.php?action=rest-nonce`, {
+				headers: { cookie },
+			} );
+		// One retry on a socket Apache already closed, as in call().
+		const res = await nonce().catch( ( error ) => {
+			if (
+				( error as { cause?: { code?: string } } ).cause?.code !==
+				'UND_ERR_SOCKET'
+			) {
+				throw error;
+			}
+			return nonce();
+		} );
 
 		return new Api( cookie, ( await res.text() ).trim() );
 	}
