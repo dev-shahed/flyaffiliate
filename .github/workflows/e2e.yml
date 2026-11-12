@@ -209,6 +209,10 @@ jobs:
           if [ -n "$GREP" ]; then ARGS+=(-g "$GREP"); fi
           npm run test:e2e -- "${ARGS[@]}"
 
+      - name: Test report
+        if: always()
+        run: node tests/pw/ci-summary.mjs "E2E · WP ${{ matrix.wp }} · PHP ${{ matrix.php }}${{ env.WITH_PRO == '1' && ' · with Pro' || '' }}" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Collect PHP and WordPress logs
         if: always()
         run: |
@@ -368,6 +372,10 @@ jobs:
       - name: Run the marketplace specs
         if: steps.gate.outputs.run == '1'
         run: npm run test:e2e -- specs/dokan.spec.ts specs/pro-core.spec.ts specs/pro-paypal.spec.ts
+
+      - name: Test report
+        if: always() && steps.gate.outputs.run == '1'
+        run: node tests/pw/ci-summary.mjs "Marketplace · Dokan + Pro · WP latest" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Collect PHP and WordPress logs
         if: always() && steps.gate.outputs.run == '1'

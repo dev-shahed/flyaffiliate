@@ -34,6 +34,8 @@ export default defineConfig( {
 				[ 'github' ],
 				[ 'list' ],
 				[ 'html', { open: 'never', outputFolder: './report' } ],
+				// Read by ci-summary.mjs for the run's test report.
+				[ 'json', { outputFile: './results.json' } ],
 		  ]
 		: [
 				[ 'list' ],
