@@ -54,10 +54,20 @@ export class Api {
 			.join( '; ' );
 
 		// Core's own endpoint for a fresh REST nonce (wp_ajax_rest_nonce).
-		const res = await fetch(
-			`${ BASE_URL }/wp-admin/admin-ajax.php?action=rest-nonce`,
-			{ headers: { cookie } }
-		);
+		const nonce = () =>
+			fetch( `${ BASE_URL }/wp-admin/admin-ajax.php?action=rest-nonce`, {
+				headers: { cookie },
+			} );
+		// One retry on a socket Apache already closed, as in call().
+		const res = await nonce().catch( ( error ) => {
+			if (
+				( error as { cause?: { code?: string } } ).cause?.code !==
+				'UND_ERR_SOCKET'
+			) {
+				throw error;
+			}
+			return nonce();
+		} );
 
 		return new Api( cookie, ( await res.text() ).trim() );
 	}
@@ -93,8 +103,9 @@ export class Api {
 	}
 
 	async call< T = any >(
-		method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+		method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'OPTIONS',
 		path: string,
+		// A string is sent as is (e.g. malformed JSON); anything else as JSON.
 		data?: unknown,
 		query: Record< string, unknown > = {}
 	): Promise< Reply< T > > {
@@ -114,7 +125,10 @@ export class Api {
 			fetch( this.url( path, query ), {
 				method,
 				headers,
-				body: data === undefined ? undefined : JSON.stringify( data ),
+				body:
+					data === undefined || typeof data === 'string'
+						? data
+						: JSON.stringify( data ),
 			} );
 		let res: Response;
 
