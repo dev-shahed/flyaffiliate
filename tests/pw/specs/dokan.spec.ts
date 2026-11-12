@@ -703,6 +703,167 @@ test.describe( 'Dokan vendor programs @dokan', () => {
 		await context.close();
 	} );
 
+	// ── The vendor program API (API_TEST_CASES.md §9.2) ──────────────────
+
+	test( '[API-DOK-02][API-DOK-03] a vendor reads their program and opts in through the API', async ( {
+		browser,
+	} ) => {
+		const vendor = createVendor();
+		const { context, state } = await loginAs( browser, vendor );
+		const vendorApi = await Api.as( state );
+		try {
+			const before = await vendorApi.get(
+				'/flyaffiliate-pro/v1/dokan/vendor/program'
+			);
+			expect( before.status, JSON.stringify( before.body ) ).toBe( 200 );
+			expect( before.body ).toMatchObject( {
+				programs_enabled: true,
+				opted_in: false,
+				active: false,
+			} );
+
+			const start = await vendorApi.post(
+				'/flyaffiliate-pro/v1/dokan/vendor/program'
+			);
+			expect( start.status, JSON.stringify( start.body ) ).toBeLessThan(
+				300
+			);
+			const after = (
+				await vendorApi.get(
+					'/flyaffiliate-pro/v1/dokan/vendor/program'
+				)
+			).body;
+			expect( after ).toMatchObject( { opted_in: true, active: true } );
+			expect( after.rate ).toBeGreaterThan( 0 );
+		} finally {
+			await context.close();
+		}
+	} );
+
+	test( '[API-DOK-04] a marketplace rate change lands in the vendor’s rate history', async ( {
+		browser,
+	} ) => {
+		const vendor = createVendor( { optIn: true } );
+		const before = setSelling( { [ K.defaultRate ]: 12 } );
+		const { context, state } = await loginAs( browser, vendor );
+		const vendorApi = await Api.as( state );
+		try {
+			const history = await vendorApi.get(
+				'/flyaffiliate-pro/v1/dokan/vendor/program/history'
+			);
+			expect( history.status, JSON.stringify( history.body ) ).toBe(
+				200
+			);
+			expect( Array.isArray( history.body ) ).toBe( true );
+			const program = (
+				await vendorApi.get(
+					'/flyaffiliate-pro/v1/dokan/vendor/program'
+				)
+			).body;
+			// The rate the vendor now earns at follows the marketplace default.
+			expect( program.rate ).toBe( 12 );
+		} finally {
+			setSelling( before as Record< string, string | number | null > );
+			await context.close();
+		}
+	} );
+
+	test( '[API-DOK-07] one of the store’s affiliates and their referrals, matching the ledger @money', async ( {
+		browser,
+	} ) => {
+		const a = createVendor( { optIn: true, rate: 15 } );
+		const b = createVendor( { optIn: true } );
+		const affA = createAffiliate();
+		const affB = createAffiliate();
+		const order = dokanCheckout( {
+			affiliateId: affA.id,
+			items: [ { productId: createVendorProduct( a.id, 100 ) } ],
+		} );
+		setOrderStatus( order.parent, 'processing' );
+		dokanCheckout( {
+			affiliateId: affB.id,
+			items: [ { productId: createVendorProduct( b.id, 100 ) } ],
+		} );
+
+		const { context, state } = await loginAs( browser, a );
+		const vendorApi = await Api.as( state );
+		try {
+			const own = await vendorApi.get(
+				`/flyaffiliate-pro/v1/dokan/vendor/affiliates/${ affA.id }`
+			);
+			expect( own.status, JSON.stringify( own.body ) ).toBe( 200 );
+
+			const referrals = await vendorApi.get(
+				`/flyaffiliate-pro/v1/dokan/vendor/affiliates/${ affA.id }/referrals`
+			);
+			expect( referrals.status, JSON.stringify( referrals.body ) ).toBe(
+				200
+			);
+			const rows = Array.isArray( referrals.body )
+				? referrals.body
+				: referrals.body.items ?? referrals.body.referrals ?? [];
+			expect( rows ).toHaveLength( 1 );
+			// The ledger: one $15.00 commission on this vendor's sub-order.
+			expect( JSON.stringify( rows[ 0 ] ) ).toMatch( /15(\.00)?\b/ );
+		} finally {
+			await context.close();
+		}
+	} );
+
+	test( '[API-DOK-06] a vendor cannot read an affiliate who never sold for their store', async ( {
+		browser,
+	} ) => {
+		// PRO-BUG-002 (tests/pw/PRODUCT_BUGS.md): GET /dokan/vendor/affiliates/{id}
+		// answers 200 with any affiliate's name and email (only the figures are
+		// scoped), so a vendor can collect every affiliate's email by id. Remove
+		// test.fail() once it answers 404 like an unknown id.
+		test.fail();
+		const a = createVendor( { optIn: true } );
+		const b = createVendor( { optIn: true } );
+		const affB = createAffiliate();
+		dokanCheckout( {
+			affiliateId: affB.id,
+			items: [ { productId: createVendorProduct( b.id, 100 ) } ],
+		} );
+		const { context, state } = await loginAs( browser, a );
+		try {
+			const foreign = await (
+				await Api.as( state )
+			).get(
+				`/flyaffiliate-pro/v1/dokan/vendor/affiliates/${ affB.id }`
+			);
+			expect( foreign.status ).toBe( 404 );
+			expect( JSON.stringify( foreign.body ) ).not.toContain(
+				affB.email
+			);
+		} finally {
+			await context.close();
+		}
+	} );
+
+	test( '[API-DOK-08] the admin reads a vendor’s program; the vendor cannot use the admin route', async ( {
+		browser,
+	} ) => {
+		const vendor = createVendor( { optIn: true, rate: 15 } );
+		const admin = await api.get(
+			`/flyaffiliate-pro/v1/dokan/vendors/${ vendor.id }`
+		);
+		expect( admin.status, JSON.stringify( admin.body ) ).toBe( 200 );
+		expect( admin.body ).toMatchObject( {
+			vendor_id: vendor.id,
+			opted_in: true,
+			rate: 15,
+			source: expect.any( String ),
+		} );
+
+		const { context, state } = await loginAs( browser, vendor );
+		const asVendor = await (
+			await Api.as( state )
+		).get( `/flyaffiliate-pro/v1/dokan/vendors/${ vendor.id }` );
+		expect( asVendor.status ).toBeGreaterThanOrEqual( 401 );
+		await context.close();
+	} );
+
 	test( "[DOK-UI-01] an active affiliate sees what they would earn on an opted-in vendor's product; a guest does not", async ( {
 		browser,
 	} ) => {

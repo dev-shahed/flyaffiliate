@@ -252,3 +252,22 @@ _None yet._
   without translating, so the paired Pro + Dokan env never shows it.
 - **Fix hint:** return codes from `get_unmet_requirements()` at load time and
   translate them where they are displayed, or defer the check to `init`.
+
+### PRO-BUG-002 — A Dokan vendor can read any affiliate's name and email by id (High, privacy)
+
+- **Where:** FlyAffiliate Pro, `Extensions/Dokan/REST/VendorProgramController::get_item()` —
+  `GET /flyaffiliate-pro/v1/dokan/vendor/affiliates/{id}`.
+- **Steps:** two opted-in vendors A and B; an affiliate who referred a sale for B only. Log
+  in as vendor A and request that affiliate's id.
+- **Expected:** 404 "This affiliate has not referred any of your sales." — the answer an
+  unknown id already gets.
+- **Actual:** 200 with the affiliate's **name, email** and avatar (the money figures are
+  scoped and show $0). Any vendor can walk ids and collect every affiliate's email. The
+  list route and the referrals route are scoped correctly.
+- **Fix hint:** return the not-found error when the affiliate has no commission on the
+  signed-in vendor's orders, before building the response.
+- **Cause:** `find_affiliate()` applies the referral check to inactive affiliates only
+  ("an active affiliate could refer the vendor's sales any time"), so every active
+  affiliate is returned to every vendor.
+- **Issue:** https://github.com/weDevsOfficial/flyaffiliate-pro/issues/25
+- **Test:** `specs/dokan.spec.ts` › `[API-DOK-06]` (`test.fail()`).

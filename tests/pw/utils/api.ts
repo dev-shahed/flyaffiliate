@@ -93,8 +93,9 @@ export class Api {
 	}
 
 	async call< T = any >(
-		method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+		method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'OPTIONS',
 		path: string,
+		// A string is sent as is (e.g. malformed JSON); anything else as JSON.
 		data?: unknown,
 		query: Record< string, unknown > = {}
 	): Promise< Reply< T > > {
@@ -114,7 +115,10 @@ export class Api {
 			fetch( this.url( path, query ), {
 				method,
 				headers,
-				body: data === undefined ? undefined : JSON.stringify( data ),
+				body:
+					data === undefined || typeof data === 'string'
+						? data
+						: JSON.stringify( data ),
 			} );
 		let res: Response;
 

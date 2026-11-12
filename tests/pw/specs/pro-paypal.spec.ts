@@ -514,6 +514,109 @@ test.describe( 'PayPal Payouts @pro @money', () => {
 		}
 	} );
 
+	test( '[API-PP-04] re-checking the connection answers its state', async () => {
+		const res = await api.post(
+			'/flyaffiliate-pro/v1/paypal/connection/verify'
+		);
+		expect( res.status, JSON.stringify( res.body ) ).toBe( 200 );
+		expect( res.body ).toMatchObject( {
+			connected: true,
+			environment: 'sandbox',
+			checks: { payouts: true, token: true },
+		} );
+	} );
+
+	test( '[API-PP-07] the environment is locked while connected; the sending source is a setting', async () => {
+		const live = await api.put( '/flyaffiliate-pro/v1/paypal/settings', {
+			environment: 'live',
+		} );
+		expect(
+			live.status,
+			JSON.stringify( live.body )
+		).toBeGreaterThanOrEqual( 400 );
+		const state = (
+			await api.get( '/flyaffiliate-pro/v1/paypal/connection' )
+		).body;
+		expect( state.environment ).toBe( 'sandbox' );
+
+		const own = await api.put( '/flyaffiliate-pro/v1/paypal/settings', {
+			source: 'own',
+		} );
+		expect( own.status, JSON.stringify( own.body ) ).toBe( 200 );
+	} );
+
+	test( '[API-PP-06] an unknown borrowed source is refused (Dokan PayPal Marketplace itself: manual)', async () => {
+		const res = await api.post(
+			'/flyaffiliate-pro/v1/paypal/connection/source',
+			{ source: 'no-such-source' }
+		);
+		expect( res.status, JSON.stringify( res.body ) ).toBeGreaterThanOrEqual(
+			400
+		);
+		expect(
+			( await api.get( '/flyaffiliate-pro/v1/paypal/connection' ) ).body
+				.connected
+		).toBe( true );
+	} );
+
+	test( '[API-PP-11] the same signed notification delivered twice is applied once', async () => {
+		setPayPalMode( { item_status: 'PENDING', verify: 'SUCCESS' } );
+		setWebhookId( 'WH-PW' );
+		const { aff, commission: id } = await owed( 3.3 );
+		const created = ( await payout( [ aff.id ] ) ).body;
+		const paymentId = created.payouts[ 0 ].id;
+		const event = itemEventFor( paymentId );
+
+		const first = await postWebhook( event, signatureHeaders() );
+		expect( first.status, JSON.stringify( first.body ) ).toBeLessThan(
+			300
+		);
+		const paid = await payment( paymentId );
+		expect( paid.status ).toBe( 'paid' );
+
+		const again = await postWebhook( event, signatureHeaders() );
+		expect( again.status, JSON.stringify( again.body ) ).toBeLessThan(
+			300
+		);
+		const still = await payment( paymentId );
+		expect( still.status ).toBe( 'paid' );
+		expect( still.paid_at ).toBe( paid.paid_at );
+		expect( ( await commission( id ) ).status ).toBe( 'paid' );
+		expect( transfersOf( paymentId ) ).toHaveLength( 1 );
+		setPayPalMode( { item_status: 'SUCCESS', verify: 'FAILURE' } );
+	} );
+
+	test( '[API-PP-12] ONHOLD waits, locked; BLOCKED needs a person and offers no retry (guide B3.5)', async () => {
+		setPayPalMode( { item_status: 'ONHOLD' } );
+		const held = await owed( 2 );
+		const heldBatch = ( await payout( [ held.aff.id ] ) ).body;
+		await refresh( heldBatch.batch_key );
+		const onHold = await payment( heldBatch.payouts[ 0 ].id );
+		expect( onHold, JSON.stringify( onHold ) ).toMatchObject( {
+			status: 'unpaid',
+			locked: true,
+			transfer: { status: 'pending' },
+		} );
+		expect( onHold.transfer.message ).toMatch( /hold/i );
+
+		setPayPalMode( { item_status: 'BLOCKED' } );
+		const blocked = await owed( 2 );
+		const blockedBatch = ( await payout( [ blocked.aff.id ] ) ).body;
+		await refresh( blockedBatch.batch_key );
+		const stopped = await payment( blockedBatch.payouts[ 0 ].id );
+		expect( stopped, JSON.stringify( stopped ) ).toMatchObject( {
+			status: 'unpaid',
+			can_retry: false,
+		} );
+		// "Needs attention." then PayPal's own reason when it gives one
+		// (the stand-in sends one), else "Blocked by PayPal.".
+		expect( stopped.transfer.message ).toMatch( /needs attention/i );
+		expect( ( await commission( blocked.commission ) ).status ).toBe(
+			'unpaid'
+		);
+		setPayPalMode( { item_status: 'SUCCESS' } );
+	} );
+
 	test( '[PP-PAY-10] switching PayPal off with a payment in flight leaves it locked until PayPal is back', async () => {
 		setPayPalMode( { item_status: 'PENDING' } );
 		const { aff } = await owed( 1.75 );
