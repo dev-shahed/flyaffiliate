@@ -255,6 +255,12 @@ _None yet._
 
 ### PRO-BUG-002 — A Dokan vendor can read any affiliate's name and email by id (High, privacy)
 
+> **Fixed** by weDevsOfficial/flyaffiliate-pro#26 (`4ff4925`): `find_affiliate()` now
+> requires a commission on the vendor's own products for every affiliate. Verified
+> 12 Nov 2026: the affiliate and referrals routes answer 404 for another store's affiliate,
+> the vendor's own affiliates still open; `dokan.spec.ts` 32 / 32 with `[API-DOK-06]` as a
+> normal test; `pro-core` + `pro-paypal` 38 passed.
+
 - **Where:** FlyAffiliate Pro, `Extensions/Dokan/REST/VendorProgramController::get_item()` —
   `GET /flyaffiliate-pro/v1/dokan/vendor/affiliates/{id}`.
 - **Steps:** two opted-in vendors A and B; an affiliate who referred a sale for B only. Log

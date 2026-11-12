@@ -813,11 +813,8 @@ test.describe( 'Dokan vendor programs @dokan', () => {
 	test( '[API-DOK-06] a vendor cannot read an affiliate who never sold for their store', async ( {
 		browser,
 	} ) => {
-		// PRO-BUG-002 (tests/pw/PRODUCT_BUGS.md): GET /dokan/vendor/affiliates/{id}
-		// answers 200 with any affiliate's name and email (only the figures are
-		// scoped), so a vendor can collect every affiliate's email by id. Remove
-		// test.fail() once it answers 404 like an unknown id.
-		test.fail();
+		// Guards PRO-BUG-002, fixed in weDevsOfficial/flyaffiliate-pro#26: the
+		// route answered 200 with any active affiliate's name and email.
 		const a = createVendor( { optIn: true } );
 		const b = createVendor( { optIn: true } );
 		const affB = createAffiliate();
