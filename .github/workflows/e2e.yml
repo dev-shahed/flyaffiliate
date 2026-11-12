@@ -2,8 +2,14 @@ name: E2E (Playwright)
 
 # The Playwright suite (tests/pw) against wp-env: WordPress + WooCommerce on
 # :8888, the tests site on :8889 (release-zip spec). One worker, one database
-# (the suite is serial by design). FlyAffiliate Pro / Dokan specs skip
-# themselves here; they need Pro's paired env.
+# (the suite is serial by design).
+#
+# FlyAffiliate Pro (a private repo) is added on pushes to develop/master and on
+# manual runs when the FLYAFFILIATE_PRO_DEPLOY_KEY secret holds a read-only
+# deploy key for weDevsOfficial/flyaffiliate-pro; its specs (pro-core,
+# pro-paypal, and paypal-sandbox with the PAYPAL_SANDBOX_* secrets) then run.
+# Pull requests, forks and runs without the key leave Pro out and those specs
+# skip themselves. The Dokan spec always skips here: it needs Pro's paired env.
 
 on:
   push:
@@ -61,6 +67,8 @@ jobs:
 
     env:
       CI: '1'
+      # '1' when FlyAffiliate Pro is checked out and activated (see the header).
+      WITH_PRO: ${{ github.event_name != 'pull_request' && secrets.FLYAFFILIATE_PRO_DEPLOY_KEY != '' && '1' || '' }}
       # Optional: specs/paypal-sandbox.spec.ts runs only with these (and Pro),
       # and skips otherwise.
       PAYPAL_SANDBOX_CLIENT_ID: ${{ secrets.PAYPAL_SANDBOX_CLIENT_ID }}
@@ -95,6 +103,28 @@ jobs:
 
       - name: Build assets
         run: npm run build
+
+      # Pro is checked out inside the workspace (actions/checkout's rule), then
+      # moved beside the plugin, where the override below finds ../flyaffiliate-pro.
+      - name: Check out FlyAffiliate Pro
+        if: env.WITH_PRO == '1'
+        uses: actions/checkout@v4
+        with:
+          repository: weDevsOfficial/flyaffiliate-pro
+          ref: ${{ vars.FLYAFFILIATE_PRO_REF || 'develop' }}
+          ssh-key: ${{ secrets.FLYAFFILIATE_PRO_DEPLOY_KEY }}
+          path: _flyaffiliate-pro
+          persist-credentials: false
+
+      - name: Build FlyAffiliate Pro
+        if: env.WITH_PRO == '1'
+        run: |
+          mv _flyaffiliate-pro ../flyaffiliate-pro
+          cd ../flyaffiliate-pro
+          # Runtime only: the prefixed Appsero SDK (dependencies/) is committed.
+          composer install --no-dev --prefer-dist --no-progress
+          npm ci --no-audit --no-fund
+          npm run build
 
       - name: Playwright version
         id: pw
@@ -135,11 +165,15 @@ jobs:
             echo "::error::Unsupported WordPress version: $WP_VERSION"
             exit 1
           fi
+          PRO=''
+          if [ "$WITH_PRO" = '1' ]; then
+            PRO=', "../flyaffiliate-pro"'
+          fi
           cat > .wp-env.override.json <<JSON
           {
             "core": "${CORE}",
             "phpVersion": "${PHP_VERSION}",
-            "plugins": [ "${WC}", "." ],
+            "plugins": [ "${WC}", "."${PRO} ],
             "env": {
               "tests": {
                 "plugins": [ "${WC}", "https://downloads.wordpress.org/plugin/plugin-check.zip" ]
