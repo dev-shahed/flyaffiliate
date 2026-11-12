@@ -221,11 +221,16 @@ test.describe( 'Escaping', () => {
 } );
 
 /**
- * React's invalid-markup warning; pinned on its own by the BUG-003 test below.
+ * Console warnings that are not ours to fix:
+ * - React's invalid-markup warning, pinned on its own by the BUG-003 test below.
+ * - WordPress 6.6's element.js bundles the production react-dom/client shim,
+ *   so under SCRIPT_DEBUG (development ReactDOM) every wp.element.createRoot
+ *   call warns about importing createRoot from "react-dom". Core, not us.
  * @param text
  */
-const isNestingWarning = ( text: string ) =>
-	text.startsWith( 'Warning: validateDOMNesting' );
+const isKnownReactWarning = ( text: string ) =>
+	text.startsWith( 'Warning: validateDOMNesting' ) ||
+	text.startsWith( 'Warning: You are importing createRoot from "react-dom"' );
 
 test.describe( 'What the pages load', () => {
 	const ROUTES = [
@@ -261,7 +266,7 @@ test.describe( 'What the pages load', () => {
 			'console',
 			( m ) =>
 				m.type() === 'error' &&
-				! isNestingWarning( m.text() ) &&
+				! isKnownReactWarning( m.text() ) &&
 				errors.push( m.text() )
 		);
 
@@ -305,7 +310,7 @@ test.describe( 'What the pages load', () => {
 			'console',
 			( m ) =>
 				m.type() === 'error' &&
-				! isNestingWarning( m.text() ) &&
+				! isKnownReactWarning( m.text() ) &&
 				errors.push( m.text() )
 		);
 
